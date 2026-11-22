@@ -1,0 +1,30 @@
+{
+  "generated_at_utc": "2026-11-22T23:45:27+00:00",
+  "source": {
+    "name": "insurance_claims.csv",
+    "publisher": "Mendeley Data",
+    "doi": "10.17632/992mh7dk9y.2",
+    "url": "https://data.mendeley.com/datasets/992mh7dk9y/2",
+    "license": "CC BY 4.0",
+    "attribution": "Aqqad, Abdelrahim (2023), insurance_claims, Mendeley Data, V2, doi: 10.17632/992mh7dk9y.2"
+  },
+  "raw_file": {
+    "filename": "insurance_claims.csv",
+    "sha256": "be11b9370c0cda353a4519832803d07bb90a494e91dfd9d56a85aa4093ba5378",
+    "bytes": 266964
+  },
+  "processed": {
+    "rows": 1000,
+    "columns": 54,
+    "fraud_reported_rate": 0.247,
+    "label_note": "fraud_reported is a reported flag, not an adjudicated finding"
+  },
+  "simulated_components": [
+    "FNOL narratives (generated from each row's real fields)",
+    "mock policies and coverage terms",
+    "fake policyholder contact details (PII-masking demo)",
+    "adjuster handling times, cycle times and costs",
+    "claim deadlines"
+  ],
+  "disclaimer": "Demo project using public and simulated data. Not a licensed insurance product, not legal or compliance advice."
+}

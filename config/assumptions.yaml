@@ -1,0 +1,178 @@
+# ClaimPilot — simulation assumptions and operating rules
+# =============================================================================
+# EVERY number in this file is ILLUSTRATIVE and SIMULATED unless marked
+# "source: dataset". Nothing here is calibrated to a real insurer's portfolio.
+# The app surfaces these values so a reviewer can see exactly what is invented.
+# =============================================================================
+
+meta:
+  carrier_name: "Northwind Mutual"          # fictional carrier
+  carrier_naic_mock: "99999"                # not a real NAIC number
+  lob: "Personal Auto — Physical Damage & Liability"
+  random_seed: 20250117                     # all simulation is deterministic
+  version: "0.1.0"
+
+dataset:
+  name: "insurance_claims.csv"
+  source: "Mendeley Data"
+  doi: "10.17632/992mh7dk9y.2"
+  url: "https://data.mendeley.com/datasets/992mh7dk9y/2"
+  license: "CC BY 4.0"
+  attribution: "Aqqad, Abdelrahim (2023), insurance_claims, Mendeley Data, V2, doi: 10.17632/992mh7dk9y.2"
+  rows_expected: 1000
+  # Honest limitations, repeated in the README and PRD:
+  limitations:
+    - "~1,000 claims only. Far too small to calibrate production thresholds."
+    - "Fraud rate is ~25%, roughly 10-25x higher than a real auto portfolio
+       (industry estimates put auto claim fraud in the low single digits).
+       Any threshold here would need full recalibration for a real carrier."
+    - "Incident dates cluster in Jan-Mar 2015; seasonality cannot be modeled."
+    - "Geography is limited to a handful of states (OH, IN, IL) and
+       synthetic-looking city names."
+    - "'fraud_reported' is a *reported* flag, not an adjudicated fraud finding.
+       It is a proxy label and inherits whatever bias the original process had."
+
+# -----------------------------------------------------------------------------
+# Fields deliberately EXCLUDED from every model input.
+# Outcomes are still tested across these groups in the fairness check.
+# -----------------------------------------------------------------------------
+protected_and_excluded_fields:
+  excluded_from_models:
+    - insured_sex                 # protected characteristic
+    - age                         # protected characteristic (age band)
+    - insured_education_level     # strong socio-economic proxy
+    - insured_occupation          # socio-economic proxy
+    - insured_relationship        # marital/family status proxy
+    - insured_zip                 # geographic proxy for race/income (redlining risk)
+    - insured_hobbies             # leaks label in this dataset; also arbitrary
+    - policy_number               # identifier, no predictive meaning
+    - incident_location           # free-text street address
+  rationale: >
+    Protected characteristics and close proxies are withheld from model inputs
+    to avoid direct discrimination. Exclusion alone does not guarantee fairness,
+    so STP and SIU rates are monitored across these same groups (see fairness).
+  fairness_test_groups:
+    - region                      # derived from incident_state
+    - age_band                    # derived from age
+    - vehicle_category            # derived from auto_make
+    - insured_sex
+
+# -----------------------------------------------------------------------------
+# Claim-handling deadlines — ILLUSTRATIVE ONLY.
+# Real deadlines are set by state unfair-claims-practices regulations and vary
+# materially by state and claim type. These are placeholder values for the demo.
+# -----------------------------------------------------------------------------
+deadlines:
+  label: "ILLUSTRATIVE — not state-specific; real rules vary by jurisdiction"
+  basis: "Loosely patterned on common US unfair claims settlement practice norms"
+  acknowledge_days: 10            # acknowledge receipt of the claim
+  decide_days: 30                 # accept or deny after receiving proof of loss
+  pay_days: 10                    # pay after accepting
+  at_risk_threshold_pct: 80       # flag "at risk" once 80% of the clock is used
+  business_days_only: false       # simplification: calendar days
+
+# -----------------------------------------------------------------------------
+# Simulated adjuster handling time (hours of touch time per claim).
+# Lognormal-ish draws around these means. SIMULATED.
+# -----------------------------------------------------------------------------
+handling_time_hours:
+  label: "SIMULATED"
+  manual_baseline:                # the "everything manual" comparison arm
+    low_severity: 2.5
+    medium_severity: 6.0
+    high_severity: 14.0
+    siu_referral_extra: 10.0
+    sigma: 0.35                   # lognormal shape; dispersion of touch time
+  claimpilot:
+    stp_auto_approved: 0.1        # near-zero human touch on fast-tracked claims
+    adjuster_assisted_multiplier: 0.78   # copilot saves ~22% of touch time
+    siu_referral_extra: 10.0
+    sigma: 0.35
+  assumption_note: >
+    The 22% assisted-handling saving is a demo placeholder chosen to be
+    deliberately conservative. It is NOT measured from real adjuster data and
+    must not be read as a validated efficiency claim.
+
+# -----------------------------------------------------------------------------
+# Simulated cost model — loss adjustment expense (LAE). SIMULATED.
+# -----------------------------------------------------------------------------
+costs:
+  label: "SIMULATED"
+  adjuster_cost_per_hour_usd: 85       # fully loaded adjuster cost
+  siu_investigator_cost_per_hour_usd: 110
+  fixed_cost_per_claim_usd: 40         # intake, systems, correspondence
+  stp_system_cost_per_claim_usd: 6     # automated processing cost
+  currency: "USD"
+
+# -----------------------------------------------------------------------------
+# Simulated cycle time (calendar days from FNOL to close). SIMULATED.
+# -----------------------------------------------------------------------------
+cycle_time_days:
+  label: "SIMULATED"
+  manual_baseline:
+    low_severity: 11.0
+    medium_severity: 21.0
+    high_severity: 38.0
+    siu_referral_extra: 22.0
+    sigma: 0.30
+  claimpilot:
+    stp_auto_approved: 0.5             # same-day fast-track
+    adjuster_assisted_multiplier: 0.82
+    siu_referral_extra: 22.0
+    sigma: 0.30
+  time_to_first_contact_hours:
+    manual_baseline: 26.0
+    claimpilot: 2.0
+    note: "Digital FNOL acknowledges immediately; manual arm waits for a callback."
+
+# -----------------------------------------------------------------------------
+# Claim leakage — the estimated overpayment vs. what should have been paid.
+# SIMULATED and crude: a demo stand-in for a real leakage study.
+# -----------------------------------------------------------------------------
+leakage:
+  label: "SIMULATED — crude proxy, not a leakage study"
+  manual_missed_fraud_rate: 0.55        # share of fraud-flagged claims paid in full
+  claimpilot_missed_fraud_rate: 0.38    # improved by triage, still far from zero
+  stp_overpayment_rate: 0.02            # cost of fast-tracking without review
+  reopen_rate_manual: 0.085
+  reopen_rate_claimpilot: 0.065
+  note: >
+    Leakage here is modeled, not observed. A real carrier measures it with
+    file reviews and round-table audits. Treat the direction as illustrative
+    and the magnitude as meaningless.
+
+# -----------------------------------------------------------------------------
+# Mock policy generation — fake coverage terms attached to each real claim row.
+# -----------------------------------------------------------------------------
+mock_policy:
+  label: "SIMULATED"
+  expired_policy_rate: 0.04        # share of claims whose loss falls outside coverage
+  lapsed_grace_days: 15
+  term_months: 12
+  coverage_types:
+    - "Comprehensive + Collision + Liability"
+    - "Collision + Liability"
+    - "Liability Only"
+  liability_only_rate: 0.07        # these create genuine coverage questions
+  policy_number_prefix: "NWM"
+
+# -----------------------------------------------------------------------------
+# Fake policyholder contact details — used ONLY to demo PII masking.
+# No real people. Names drawn from a small fixed synthetic list.
+# -----------------------------------------------------------------------------
+mock_contact:
+  label: "SIMULATED — fictional people, generated for the masking demo"
+  email_domain: "example.com"      # RFC 2606 reserved, never deliverable
+  phone_area_codes: [555]          # 555 is reserved for fiction
+  note: "Contact details exist so the PII-masking demo has something to mask."
+
+# -----------------------------------------------------------------------------
+# Narrative generation — FNOL free-text built from each row's real fields.
+# Ground truth is retained so extraction accuracy can be measured.
+# -----------------------------------------------------------------------------
+narratives:
+  label: "SIMULATED"
+  count: 1000                      # one per claim row
+  include_pii_rate: 0.45           # share of narratives that embed contact details
+  omit_field_rate: 0.18            # realistic incompleteness for the extractor
+  vague_amount_rate: 0.25          # "a few thousand dollars" instead of a figure

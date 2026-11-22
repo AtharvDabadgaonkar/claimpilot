@@ -1,0 +1,25 @@
+# Raw data — never committed (licensing + size). Rebuild with `make data`.
+data/raw/
+*.zip
+
+# Secrets
+.streamlit/secrets.toml
+.env
+.env.*
+!.env.example
+
+# Python
+__pycache__/
+*.py[cod]
+*.egg-info/
+.venv/
+venv/
+.pytest_cache/
+.ruff_cache/
+.coverage
+htmlcov/
+
+# OS / editor
+.DS_Store
+.idea/
+.vscode/

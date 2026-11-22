@@ -1,0 +1,61 @@
+{
+  "generated_at_utc": "2026-11-22T23:45:28+00:00",
+  "assumptions_version": "0.1.0",
+  "random_seed": 20250117,
+  "phases_complete": [
+    "1-setup-and-data"
+  ],
+  "disclaimer": "Demo project using public and simulated data. Not a licensed insurance product, not legal or compliance advice.",
+  "reading_note": "Numbers under 'dataset' and 'pii_masking' are measured. Numbers under 'simulated_layers' derive from assumptions in config/assumptions.yaml and are not observations of a real insurer's operations.",
+  "dataset": {
+    "source": "Mendeley Data",
+    "doi": "10.17632/992mh7dk9y.2",
+    "license": "CC BY 4.0",
+    "claims": 1000,
+    "columns_after_cleaning": 54,
+    "reported_fraud_rate": 0.247,
+    "median_total_claim_usd": 58055.0,
+    "mean_total_claim_usd": 52761.94,
+    "injury_claim_rate": 0.66,
+    "multi_party_rate": 0.419,
+    "missing_police_report_rate": 0.343,
+    "is_real": true
+  },
+  "simulated_layers": {
+    "narratives": 1000,
+    "narratives_mean_chars": 440,
+    "narratives_with_pii": 464,
+    "narratives_vague_amount": 247,
+    "mock_policies": 1000,
+    "policies_expired_at_loss": 34,
+    "policies_liability_only": 63,
+    "baseline_mean_handling_hours": 8.97,
+    "baseline_mean_cycle_days": 26.2,
+    "baseline_mean_lae_usd": 802.63,
+    "is_real": false
+  },
+  "pii_masking": {
+    "narratives_known_to_contain_pii": 464,
+    "detection_rate": 1.0,
+    "false_positive_count_on_clean_narratives": 0,
+    "clean_narratives_checked": 536,
+    "method": "regex-based, demo grade",
+    "is_real": true
+  },
+  "governance": {
+    "fields_excluded_from_models": [
+      "insured_sex",
+      "age",
+      "insured_education_level",
+      "insured_occupation",
+      "insured_relationship",
+      "insured_zip",
+      "insured_hobbies",
+      "policy_number",
+      "incident_location"
+    ],
+    "fields_excluded_count": 9,
+    "auto_deny_paths": 0,
+    "auto_deny_note": "the system can auto-approve but never auto-deny"
+  }
+}
