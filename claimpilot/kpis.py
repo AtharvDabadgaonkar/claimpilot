@@ -279,6 +279,29 @@ def workbench_metrics() -> dict[str, Any]:
     }
 
 
+def governance_metrics() -> dict[str, Any]:
+    """Fairness, model inventory and monitoring figures."""
+    import pandas as pd
+
+    from claimpilot.audit import seed_demo_log
+    from claimpilot.fairness import assess_all
+    from claimpilot.fairness import summary as fairness_summary
+    from claimpilot.model_cards import inventory_summary
+    from claimpilot.monitoring import monitoring_summary
+    from claimpilot.pipeline import load_scored
+
+    scored = load_scored()
+    claims = pd.read_parquet(config.CLAIMS_PARQUET)
+    log = seed_demo_log(scored)
+
+    return {
+        "fairness": fairness_summary(assess_all(scored, claims)),
+        "model_inventory": inventory_summary(),
+        "monitoring": monitoring_summary(log, scored, claims),
+        "is_real": True,
+    }
+
+
 def build_metrics() -> dict[str, Any]:
     """Assemble every metric available at the current build phase."""
     metrics: dict[str, Any] = {
@@ -289,6 +312,7 @@ def build_metrics() -> dict[str, Any]:
             "1-setup-and-data",
             "2-intake-and-triage",
             "3-workbench-and-siu",
+            "4-governance",
         ],
         "disclaimer": config.DISCLAIMER,
         "reading_note": (
@@ -304,6 +328,7 @@ def build_metrics() -> dict[str, Any]:
     metrics["triage_routing"] = triage_routing_metrics()
     metrics["reserve_model"] = reserve_model_metrics()
     metrics["workbench"] = workbench_metrics()
+    metrics["governance_programme"] = governance_metrics()
     return metrics
 
 

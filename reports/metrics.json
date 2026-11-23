@@ -1,11 +1,12 @@
 {
-  "generated_at_utc": "2026-11-23T01:20:31+00:00",
+  "generated_at_utc": "2026-11-23T14:19:44+00:00",
   "assumptions_version": "0.1.0",
   "random_seed": 20250117,
   "phases_complete": [
     "1-setup-and-data",
     "2-intake-and-triage",
-    "3-workbench-and-siu"
+    "3-workbench-and-siu",
+    "4-governance"
   ],
   "disclaimer": "Demo project using public and simulated data. Not a licensed insurance product, not legal or compliance advice.",
   "reading_note": "Numbers under 'dataset' and 'pii_masking' are measured. Numbers under 'simulated_layers' derive from assumptions in config/assumptions.yaml and are not observations of a real insurer's operations.",
@@ -159,5 +160,424 @@
     "is_real": false,
     "deadline_caveat": "Deadlines are illustrative and not state-specific. The high breach rate reflects a 2015 dataset viewed from a fixed demo date, not an operational failure.",
     "override_caveat": "Override rate counts only decisions where the AI made a substantive call (fast-track or SIU referral). Claims routed to a queue for review are excluded: there is nothing to override."
+  },
+  "governance_programme": {
+    "fairness": {
+      "threshold": 0.8,
+      "tests_run": 8,
+      "tests_assessable": 8,
+      "tests_flagged": 5,
+      "flagged": [
+        {
+          "attribute": "region",
+          "outcome": "STP fast-track rate",
+          "ratio": 0.5332,
+          "lowest_group": "Northeast",
+          "highest_group": "South Atlantic"
+        },
+        {
+          "attribute": "age_band",
+          "outcome": "STP fast-track rate",
+          "ratio": 0.3549,
+          "lowest_group": "56+",
+          "highest_group": "46-55"
+        },
+        {
+          "attribute": "age_band",
+          "outcome": "SIU referral rate",
+          "ratio": 0.4954,
+          "lowest_group": "46-55",
+          "highest_group": "56+"
+        },
+        {
+          "attribute": "vehicle_category",
+          "outcome": "STP fast-track rate",
+          "ratio": 0.7153,
+          "lowest_group": "Near-luxury",
+          "highest_group": "Luxury"
+        },
+        {
+          "attribute": "vehicle_category",
+          "outcome": "SIU referral rate",
+          "ratio": 0.7687,
+          "lowest_group": "Near-luxury",
+          "highest_group": "Luxury"
+        }
+      ],
+      "worst_ratio": 0.3549,
+      "results": [
+        {
+          "attribute": "region",
+          "outcome": "STP fast-track rate",
+          "disparate_impact_ratio": 0.5332,
+          "threshold": 0.8,
+          "flagged": true,
+          "verdict": "Flagged for review",
+          "lowest_group": "Northeast",
+          "highest_group": "South Atlantic",
+          "excluded_small_groups": [
+            "Midwest"
+          ],
+          "groups": [
+            {
+              "group": "Midwest",
+              "n": 23,
+              "favourable": 0,
+              "rate": 0.0,
+              "too_small": true
+            },
+            {
+              "group": "Northeast",
+              "n": 292,
+              "favourable": 15,
+              "rate": 0.0514,
+              "too_small": false
+            },
+            {
+              "group": "South Atlantic",
+              "n": 685,
+              "favourable": 66,
+              "rate": 0.0964,
+              "too_small": false
+            }
+          ]
+        },
+        {
+          "attribute": "region",
+          "outcome": "SIU referral rate",
+          "disparate_impact_ratio": 0.9637,
+          "threshold": 0.8,
+          "flagged": false,
+          "verdict": "Within threshold",
+          "lowest_group": "Northeast",
+          "highest_group": "South Atlantic",
+          "excluded_small_groups": [
+            "Midwest"
+          ],
+          "groups": [
+            {
+              "group": "Northeast",
+              "n": 292,
+              "favourable": 76,
+              "rate": 0.2603,
+              "too_small": false
+            },
+            {
+              "group": "South Atlantic",
+              "n": 685,
+              "favourable": 185,
+              "rate": 0.2701,
+              "too_small": false
+            },
+            {
+              "group": "Midwest",
+              "n": 23,
+              "favourable": 10,
+              "rate": 0.4348,
+              "too_small": true
+            }
+          ]
+        },
+        {
+          "attribute": "age_band",
+          "outcome": "STP fast-track rate",
+          "disparate_impact_ratio": 0.3549,
+          "threshold": 0.8,
+          "flagged": true,
+          "verdict": "Flagged for review",
+          "lowest_group": "56+",
+          "highest_group": "46-55",
+          "excluded_small_groups": [],
+          "groups": [
+            {
+              "group": "56+",
+              "n": 64,
+              "favourable": 2,
+              "rate": 0.0312,
+              "too_small": false
+            },
+            {
+              "group": "18-25",
+              "n": 40,
+              "favourable": 2,
+              "rate": 0.05,
+              "too_small": false
+            },
+            {
+              "group": "26-35",
+              "n": 352,
+              "favourable": 30,
+              "rate": 0.0852,
+              "too_small": false
+            },
+            {
+              "group": "36-45",
+              "n": 385,
+              "favourable": 33,
+              "rate": 0.0857,
+              "too_small": false
+            },
+            {
+              "group": "46-55",
+              "n": 159,
+              "favourable": 14,
+              "rate": 0.0881,
+              "too_small": false
+            }
+          ]
+        },
+        {
+          "attribute": "age_band",
+          "outcome": "SIU referral rate",
+          "disparate_impact_ratio": 0.4954,
+          "threshold": 0.8,
+          "flagged": true,
+          "verdict": "Flagged for review",
+          "lowest_group": "46-55",
+          "highest_group": "56+",
+          "excluded_small_groups": [],
+          "groups": [
+            {
+              "group": "46-55",
+              "n": 159,
+              "favourable": 32,
+              "rate": 0.2013,
+              "too_small": false
+            },
+            {
+              "group": "36-45",
+              "n": 385,
+              "favourable": 103,
+              "rate": 0.2675,
+              "too_small": false
+            },
+            {
+              "group": "26-35",
+              "n": 352,
+              "favourable": 98,
+              "rate": 0.2784,
+              "too_small": false
+            },
+            {
+              "group": "18-25",
+              "n": 40,
+              "favourable": 12,
+              "rate": 0.3,
+              "too_small": false
+            },
+            {
+              "group": "56+",
+              "n": 64,
+              "favourable": 26,
+              "rate": 0.4062,
+              "too_small": false
+            }
+          ]
+        },
+        {
+          "attribute": "vehicle_category",
+          "outcome": "STP fast-track rate",
+          "disparate_impact_ratio": 0.7153,
+          "threshold": 0.8,
+          "flagged": true,
+          "verdict": "Flagged for review",
+          "lowest_group": "Near-luxury",
+          "highest_group": "Luxury",
+          "excluded_small_groups": [],
+          "groups": [
+            {
+              "group": "Near-luxury",
+              "n": 216,
+              "favourable": 15,
+              "rate": 0.0694,
+              "too_small": false
+            },
+            {
+              "group": "Mainstream",
+              "n": 578,
+              "favourable": 46,
+              "rate": 0.0796,
+              "too_small": false
+            },
+            {
+              "group": "Luxury",
+              "n": 206,
+              "favourable": 20,
+              "rate": 0.0971,
+              "too_small": false
+            }
+          ]
+        },
+        {
+          "attribute": "vehicle_category",
+          "outcome": "SIU referral rate",
+          "disparate_impact_ratio": 0.7687,
+          "threshold": 0.8,
+          "flagged": true,
+          "verdict": "Flagged for review",
+          "lowest_group": "Near-luxury",
+          "highest_group": "Luxury",
+          "excluded_small_groups": [],
+          "groups": [
+            {
+              "group": "Near-luxury",
+              "n": 216,
+              "favourable": 54,
+              "rate": 0.25,
+              "too_small": false
+            },
+            {
+              "group": "Mainstream",
+              "n": 578,
+              "favourable": 150,
+              "rate": 0.2595,
+              "too_small": false
+            },
+            {
+              "group": "Luxury",
+              "n": 206,
+              "favourable": 67,
+              "rate": 0.3252,
+              "too_small": false
+            }
+          ]
+        },
+        {
+          "attribute": "insured_sex",
+          "outcome": "STP fast-track rate",
+          "disparate_impact_ratio": 0.8412,
+          "threshold": 0.8,
+          "flagged": false,
+          "verdict": "Within threshold",
+          "lowest_group": "FEMALE",
+          "highest_group": "MALE",
+          "excluded_small_groups": [],
+          "groups": [
+            {
+              "group": "FEMALE",
+              "n": 537,
+              "favourable": 40,
+              "rate": 0.0745,
+              "too_small": false
+            },
+            {
+              "group": "MALE",
+              "n": 463,
+              "favourable": 41,
+              "rate": 0.0886,
+              "too_small": false
+            }
+          ]
+        },
+        {
+          "attribute": "insured_sex",
+          "outcome": "SIU referral rate",
+          "disparate_impact_ratio": 0.9491,
+          "threshold": 0.8,
+          "flagged": false,
+          "verdict": "Within threshold",
+          "lowest_group": "FEMALE",
+          "highest_group": "MALE",
+          "excluded_small_groups": [],
+          "groups": [
+            {
+              "group": "FEMALE",
+              "n": 537,
+              "favourable": 142,
+              "rate": 0.2644,
+              "too_small": false
+            },
+            {
+              "group": "MALE",
+              "n": 463,
+              "favourable": 129,
+              "rate": 0.2786,
+              "too_small": false
+            }
+          ]
+        }
+      ],
+      "threshold_note": "The 0.8 threshold comes from the EEOC four-fifths rule in employment law. It is used here as a widely understood screening signal. Insurance discrimination is governed by state unfair trade practice and unfair claims settlement acts, which do not define a single numeric test. A real carrier would agree its metrics with counsel and its regulators."
+    },
+    "model_inventory": {
+      "inventory_version": "model-inventory-v0.1",
+      "components": 4,
+      "by_risk_tier": {
+        "low": 1,
+        "medium": 2,
+        "high": 1
+      },
+      "all_have_an_owner": true,
+      "all_have_limitations": true,
+      "all_have_failure_modes": true,
+      "cards": [
+        {
+          "id": "fnol_extractor",
+          "name": "FNOL Field Extractor",
+          "version": "rules-v0.1",
+          "risk_tier": "medium",
+          "owner": "Claims Intake Product Owner",
+          "last_evaluated": "2026-11-22",
+          "limitations_documented": 4,
+          "failure_modes_documented": 2,
+          "excluded_inputs_documented": 1
+        },
+        {
+          "id": "fraud_model",
+          "name": "Fraud Signal Model",
+          "version": "fraud-hgb-v0.1",
+          "risk_tier": "high",
+          "owner": "SIU Lead / Chief Claims Officer",
+          "last_evaluated": "2026-11-22",
+          "limitations_documented": 5,
+          "failure_modes_documented": 3,
+          "excluded_inputs_documented": 4
+        },
+        {
+          "id": "reserve_model",
+          "name": "Reserve Suggestion Model",
+          "version": "reserve-gbq-v0.1",
+          "risk_tier": "medium",
+          "owner": "Claims Reserving Manager",
+          "last_evaluated": "2026-11-22",
+          "limitations_documented": 4,
+          "failure_modes_documented": 2,
+          "excluded_inputs_documented": 2
+        },
+        {
+          "id": "copilot",
+          "name": "Adjuster Copilot",
+          "version": "claimpilot-rules-v0.1",
+          "risk_tier": "low",
+          "owner": "Claims Operations Lead",
+          "last_evaluated": "2026-11-22",
+          "limitations_documented": 3,
+          "failure_modes_documented": 2,
+          "excluded_inputs_documented": 1
+        }
+      ]
+    },
+    "monitoring": {
+      "signals": [
+        {
+          "name": "Override rate",
+          "value": 0.1111,
+          "status": "OK",
+          "threshold": 0.25,
+          "detail": "11.1% of 27 eligible decisions were overridden, within the 2%-25% range."
+        },
+        {
+          "name": "Score drift (PSI)",
+          "value": 0.0321,
+          "status": "OK",
+          "threshold": 0.1,
+          "detail": "PSI 0.032 is below the 0.1 warning level: no material shift between the two periods. Note: this compares halves of the same two-month period, not live scores against the training distribution, and ~1,000 claims is far too few for a dependable signal."
+        }
+      ],
+      "alerts": 0,
+      "warnings": 0,
+      "drift_note": "Drift here compares the second half of the claim period against the first, which is a stand-in for comparing live scores against the training distribution. With ~1,000 claims over two months there is not enough data for a meaningful drift signal; the mechanism is demonstrated, not relied on."
+    },
+    "is_real": true
   }
 }

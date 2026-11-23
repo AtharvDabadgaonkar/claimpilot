@@ -9,10 +9,11 @@ fair-tested and auditable.
 
 Built for the fictional carrier **Northwind Mutual**. `Intake → Triage → Route → Assist → Govern → Measure`
 
-> 🚧 **Phase 3 of 5 complete** — data foundation, FNOL intake, triage and
-> routing, and the adjuster workbench + SIU queue with reserve suggestions and
-> a full audit trail. Governance views and the KPI dashboard land in Phases
-> 4–5. The live link and screenshots go here once Phase 5 ships.
+> 🚧 **Phase 4 of 5 complete** — data foundation, FNOL intake, triage and
+> routing, the adjuster workbench + SIU queue, and the governance layer:
+> audit trail, fairness testing, model inventory and monitoring. The backtest
+> and KPI dashboard land in Phase 5. The live link and screenshots go here
+> once Phase 5 ships.
 
 ---
 
@@ -128,6 +129,39 @@ dataset's losses run Jan–Mar 2015 and the demo views them from a fixed date of
 2015-03-15. The acknowledge deadline is met on 100% of claims because
 digital FNOL acknowledges on submission.
 
+**Measured — governance**
+
+| Metric | Value |
+|---|---|
+| Fairness tests run | 8 |
+| **Fairness tests flagged** | **5 of 8** |
+| Worst disparate impact ratio | **0.3549** (STP fast-track rate by age_band) |
+| Disparate impact threshold | 0.8 |
+| AI components inventoried | 4 (1 high / 2 medium / 1 low risk) |
+| Monitoring alerts / warnings | 0 / 0 |
+
+### 🚩 This portfolio fails its own fairness check
+
+**5 of 8 disparate-impact tests fall below 0.8**, and the
+project reports that rather than hiding it. The worst is the STP fast-track
+rate by age band at **0.3549** — the oldest band is fast-tracked at roughly
+a third the rate of the highest band.
+
+Age is **not a model input**. The disparity arrives by correlation: that band
+has the fewest low-severity claims and the highest reported-fraud rate in this
+data, so it fails the low-severity and low-fraud gates more often. And the
+fraud label is a *reported* flag, so historical bias in who got referred is
+reproduced.
+
+That is the entire argument for outcome testing: **excluding a protected
+attribute did not prevent a disparate outcome.** On a real portfolio this would
+block deployment pending investigation. A test asserts the check keeps flagging
+something, so a future change cannot quietly weaken it and read as progress.
+
+**On the 0.8 threshold** — it is the EEOC four-fifths rule from US *employment*
+law, used because it is widely understood. It is not an insurance standard and
+not a legal test for claims handling. See [`docs/AI_GOVERNANCE.md`](docs/AI_GOVERNANCE.md).
+
 **Simulated — derived from `config/assumptions.yaml`, not observations**
 
 | Metric | Value |
@@ -222,8 +256,20 @@ Designed around the **NAIC AI Model Bulletin**. Phase 1 ships the foundations:
 - **Reproducibility** — one seed in `config/assumptions.yaml` makes every
   simulated table byte-identical across runs.
 
-The full programme summary, risk tiers and model cards arrive in Phase 4
-(`docs/AI_GOVERNANCE.md`).
+- **Outcome testing, not just exclusion** — STP and SIU rates are measured
+  across region, age band, vehicle category and sex, with disparate impact
+  ratios flagged below 0.8.
+- **A model card per AI component** — purpose, data, inputs, exclusions, risk
+  tier, owner, limitations and failure modes, in
+  [`config/model_cards.yaml`](config/model_cards.yaml). Performance figures are
+  read live from `metrics.json`, so a card cannot drift from its model.
+- **Monitoring with a floor as well as a ceiling** — a near-zero override rate
+  is treated as a warning, not a success: if humans never disagree with the AI,
+  rubber-stamping is likelier than perfection.
+
+The full programme summary, risk tiers, fairness approach and what a real
+insurer would need beyond this demo are in
+[`docs/AI_GOVERNANCE.md`](docs/AI_GOVERNANCE.md).
 
 ---
 
@@ -295,11 +341,16 @@ claimpilot/
 │   ├── copilot.py          # adjuster briefing; allow-listed fields only
 │   ├── workbench.py        # queue priority and deadline tracking
 │   ├── audit.py            # audit trail; denial justification enforced
+│   ├── fairness.py         # disparate impact across protected groups
+│   ├── model_cards.py      # model inventory loader
+│   ├── monitoring.py       # override rate, score trends, PSI drift
 │   ├── kpis.py             # every published metric
 │   ├── ui.py               # shared page chrome and disclaimers
 │   └── llm/                # provider interface, mock fallback, PII masking
 ├── config/assumptions.yaml # EVERY simulated constant, in one auditable file
 ├── config/routing_rules.yaml # routing rules + the forbidden-destination list
+├── config/model_cards.yaml   # the AI model inventory
+├── docs/AI_GOVERNANCE.md     # programme summary, risk tiers, fairness, audit
 ├── models/                 # trained model artifacts (small, committed)
 ├── data/sample/            # committed processed Parquet (118 KB)
 ├── reports/metrics.json    # all published numbers

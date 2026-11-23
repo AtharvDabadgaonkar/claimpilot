@@ -1,0 +1,167 @@
+# Model inventory for ClaimPilot.
+#
+# One card per AI component, in the spirit of the NAIC AI Model Bulletin's
+# expectation that an insurer maintains an inventory of its AI systems with
+# documented purpose, data, limitations and oversight.
+#
+# "Risk tier" here drives how much human oversight a component gets:
+#   low    — output is informational; a human acts on it or ignores it
+#   medium — output shapes routing or valuation, always under human review
+#   high   — output can change what happens to a claim without a human first
+#
+# last_evaluated is the date the metrics in reports/metrics.json were last
+# regenerated for that component. In a real programme this would be an
+# independent validation date, not a self-assessment.
+
+version: "model-inventory-v0.1"
+owner_note: >
+  Owners below are illustrative roles for a fictional carrier, not real people.
+  A real inventory names an accountable individual for each system.
+
+cards:
+  - id: fnol_extractor
+    name: "FNOL Field Extractor"
+    version: "rules-v0.1"
+    purpose: >
+      Turns a policyholder's free-text account of a loss into structured
+      fields (date, loss type, injuries, police report, vehicle, amount) so a
+      claim can be triaged without manual re-keying.
+    technique: "Deterministic rules and regular expressions. Not a language model."
+    risk_tier: medium
+    owner: "Claims Intake Product Owner"
+    last_evaluated: "2026-11-22"
+    training_data: >
+      None. The extractor is rule-based and is not trained. Its patterns were
+      developed against 1,000 simulated narratives generated from the source
+      dataset's real field values.
+    inputs:
+      - "Free-text loss description submitted by the policyholder"
+    outputs:
+      - "Structured, pydantic-validated claim fields"
+      - "A list of fields that were not stated"
+    excluded_inputs:
+      - "No policyholder demographics are used or inferred"
+    human_oversight: >
+      Extracted fields are shown to the adjuster alongside the original text
+      and can be corrected. Nothing is auto-approved on extraction alone.
+    limitations:
+      - >
+        Accuracy is reported at 100% on the generated corpus, which is close to
+        circular: the narratives came from templates the regular expressions
+        were written against, and the hand-written paraphrase set was also used
+        while tuning. No genuinely held-out evaluation exists because all text
+        in this project is synthetic.
+      - "Would degrade materially on real claimant writing: misspellings, dictation errors, mixed languages, missing punctuation."
+      - "English only. No handling of non-Latin scripts."
+      - "Refuses to guess: an unstated field returns null, which downstream treats as a documentation gap rather than a 'no'."
+    failure_modes:
+      - "Silently extracting nothing from unusual phrasing, producing a low-completeness claim that still routes normally."
+      - "Mis-reading a vague amount as a figure. Mitigated: vague phrases are explicitly refused."
+
+  - id: fraud_model
+    name: "Fraud Signal Model"
+    version: "fraud-hgb-v0.1"
+    purpose: >
+      Scores each claim for the likelihood that it would have been reported as
+      fraudulent, to prioritise SIU investigation capacity.
+    technique: "HistGradientBoostingClassifier on 21 allow-listed features."
+    risk_tier: high
+    owner: "SIU Lead / Chief Claims Officer"
+    last_evaluated: "2026-11-22"
+    training_data: >
+      750 claims from the Mendeley auto-claims dataset (CC BY 4.0), 25% held
+      out for testing. Label is `fraud_reported`.
+    inputs:
+      - "Policy characteristics: tenure, deductible, premium, umbrella limit, CSL limits"
+      - "Incident characteristics: type, collision type, severity, authorities contacted, hour, vehicles, injuries, witnesses"
+      - "Claim amounts and vehicle age"
+      - "Documentation gaps: missing police report, missing property damage info"
+    excluded_inputs:
+      - "insured_sex, age, insured_education_level, insured_occupation, insured_relationship, insured_zip, insured_hobbies"
+      - "incident_state and incident_city (geographic proxies)"
+      - "auto_make (wealth proxy)"
+      - "capital_gains and capital_loss (socio-economic proxies)"
+    human_oversight: >
+      A high score routes the claim to SIU for investigation. It NEVER denies a
+      claim and is never a basis for refusing payment. Only a human can deny,
+      and only with a reason code and a written note.
+    limitations:
+      - >
+        The label is a REPORTED flag, not an adjudicated fraud finding. The
+        model learns which claims were historically referred, inheriting
+        whatever bias that referral process carried.
+      - >
+        Portfolio fraud rate is 24.7%, roughly 10-25x a real auto book.
+        Precision is therefore wildly optimistic and every threshold would need
+        full recalibration before real use.
+      - "Cross-validated AUC is 0.741 against 0.803 on a single test split; the split figure flatters the model."
+      - "Trained on ~1,000 claims over two months in 2015 across a handful of states. No seasonality, no geographic generality."
+      - "insured_hobbies leaks the label in this dataset and is excluded; a careless build would score far higher and mean nothing."
+    failure_modes:
+      - "Referring legitimate claims: at precision 0.58, roughly 42% of referrals are expected to be unfounded."
+      - "Reproducing historical referral bias against groups that were over-referred in the source data."
+      - "Score drift as the claim mix changes, without the label arriving to detect it."
+
+  - id: reserve_model
+    name: "Reserve Suggestion Model"
+    version: "reserve-gbq-v0.1"
+    purpose: >
+      Suggests an expected ultimate claim cost, with a range, so adjusters set
+      reserves consistently rather than by individual habit.
+    technique: "GradientBoostingRegressor with quantile loss at the 10th, 50th and 90th percentiles."
+    risk_tier: medium
+    owner: "Claims Reserving Manager"
+    last_evaluated: "2026-11-22"
+    training_data: >
+      750 claims from the same dataset, target `total_claim_amount`, 25% held
+      out for testing.
+    inputs:
+      - "Incident type, collision type, severity, authorities contacted"
+      - "Injuries, vehicles involved, witnesses, hour of loss"
+      - "Vehicle age, deductible, CSL limits"
+      - "Documentation gaps"
+    excluded_inputs:
+      - "total_claim_amount (the target), injury_claim, property_claim, vehicle_claim, injury_claim_share"
+      - "All protected characteristics and proxies"
+    human_oversight: >
+      The suggestion is a default the adjuster can change; the adjuster sets
+      the figure that is recorded. The number always comes from this model and
+      never from a language model.
+    limitations:
+      - "R2 0.692 with mean absolute error of $10,653 against a mean claim of $52,762 — roughly 20% error."
+      - "The 80% prediction interval contains 78% of held-out claims: reasonably calibrated, but a range, not a point estimate."
+      - "Claim amount components are excluded as target leakage; they do not exist at first notice of loss."
+      - "Trained on a severity distribution unlike a real auto book (median claim ~$58k)."
+    failure_modes:
+      - "Under-reserving unusual claims that sit outside the training distribution."
+      - "Anchoring: an adjuster accepting the suggestion without independent judgement."
+
+  - id: copilot
+    name: "Adjuster Copilot"
+    version: "claimpilot-rules-v0.1"
+    purpose: >
+      Summarises a claim, proposes a next-best action, and lists outstanding
+      documents, so an adjuster can pick up a file quickly.
+    technique: >
+      Provider interface with a deterministic rule-based template engine as the
+      default. A hosted language model can be configured but is not required;
+      the deployed demo runs entirely on the rule-based provider.
+    risk_tier: low
+    owner: "Claims Operations Lead"
+    last_evaluated: "2026-11-22"
+    training_data: "None. Template-driven over the claim's own structured fields."
+    inputs:
+      - "A fixed allow-list of 20 claim fields"
+      - "The claimant's free text, PII-masked before use"
+    excluded_inputs:
+      - "All policyholder demographics. The copilot is structurally unable to read them."
+    human_oversight: >
+      Entirely advisory. The adjuster makes every decision. The copilot cannot
+      approve, deny, escalate or pay anything.
+    limitations:
+      - "Describes only what is in the claim record; it has no access to policy wordings, case law or prior claims."
+      - "The reserve figure it reports is produced by the reserve model, not by the copilot."
+      - "If a hosted LLM were enabled, output would become non-deterministic and would need its own evaluation before use."
+    failure_modes:
+      - "A plausible-sounding summary that omits a material fact the adjuster then misses."
+      - "Over-reliance: an adjuster treating the next-best action as an instruction rather than a prompt."

@@ -27,3 +27,7 @@ if __name__ == "__main__":
     print(f"  reserve MAE:       ${m['reserve_model']['mae_usd']:,.0f}")
     print(f"  reserve coverage:  {m['reserve_model']['interval_coverage']:.1%}")
     print(f"  override rate:     {m['workbench']['override_rate']:.1%}")
+    g = m['governance_programme']
+    print(f"  fairness flagged:  {g['fairness']['tests_flagged']}/{g['fairness']['tests_assessable']} (worst {g['fairness']['worst_ratio']})")
+    print(f"  model cards:       {g['model_inventory']['components']}")
+    print(f"  monitoring alerts: {g['monitoring']['alerts']} / warnings {g['monitoring']['warnings']}")
