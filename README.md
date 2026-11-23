@@ -1,4 +1,4 @@
-# 🛡️ ClaimPilot — AI Claims Triage, Automation & Governance
+# 🛡️ ClaimPilot - AI Claims Triage, Automation & Governance
 
 **Auto insurance claims arrive faster than adjusters can work them. Triaging every
 claim by hand is slow and expensive; automating payouts without controls invites
