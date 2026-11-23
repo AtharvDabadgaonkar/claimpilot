@@ -2,17 +2,16 @@
 
 **Auto insurance claims arrive faster than adjusters can work them. Triaging every
 claim by hand is slow and expensive; automating payouts without controls invites
-claim leakage and unfair outcomes.** ClaimPilot takes auto claims in digitally,
-scores each one for severity, complexity and fraud signal, fast-tracks the simple
+claim leakage and unfair outcomes.** 
+
+ClaimPilot takes auto claims in digitally, scores each one for severity, complexity and fraud signal, fast-tracks the simple
 ones, assists adjusters with the rest, and makes every AI decision explainable,
 fair-tested and auditable.
 
 Built for the fictional carrier **Northwind Mutual**. `Intake → Triage → Route → Assist → Govern → Measure`
 
-**▶️ Live demo:** _paste your Streamlit Community Cloud URL here after deploying_ — see [Deploy it yourself](#deploy-it-yourself).
+**▶️ Live demo:** .
 
-> 📸 _Screenshot goes here._ Run `make run`, open the Overview page, and save a
-> capture to `docs/screenshot.png`, then reference it above this line.
 
 > ✅ **All 5 phases complete** — data foundation; FNOL intake, triage and
 > routing; adjuster workbench and SIU queue; governance (audit trail, fairness
