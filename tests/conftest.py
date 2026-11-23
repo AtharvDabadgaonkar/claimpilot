@@ -35,3 +35,10 @@ def deadlines() -> pd.DataFrame:
 @pytest.fixture(scope="session")
 def baseline() -> pd.DataFrame:
     return pd.read_parquet(config.SAMPLE_DIR / "baseline.parquet")
+
+
+@pytest.fixture(scope="session")
+def scored_portfolio() -> pd.DataFrame:
+    from claimpilot.pipeline import load_scored
+
+    return load_scored()

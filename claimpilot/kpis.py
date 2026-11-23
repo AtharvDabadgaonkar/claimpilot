@@ -225,13 +225,71 @@ def fraud_model_metrics() -> dict[str, Any]:
     return {**bundle["metrics"], "features_used": len(bundle["features"]), "is_real": True}
 
 
+def reserve_model_metrics() -> dict[str, Any]:
+    from claimpilot.reserve import load_model
+
+    bundle = load_model()
+    return {**bundle["metrics"], "features_used": len(bundle["features"]), "is_real": True}
+
+
+def workbench_metrics() -> dict[str, Any]:
+    """Queue, deadline and audit figures from the seeded demo state."""
+    import pandas as pd
+
+    from claimpilot.audit import seed_demo_log
+    from claimpilot.pipeline import load_scored
+    from claimpilot.workbench import add_deadline_status, build_queue, demo_today
+
+    scored = load_scored()
+    claims = pd.read_parquet(config.CLAIMS_PARQUET)
+    deadlines = pd.read_parquet(config.SAMPLE_DIR / "deadlines.parquet")
+
+    status = add_deadline_status(deadlines)
+    queue = build_queue(scored, claims, deadlines)
+    log = seed_demo_log(scored)
+
+    def share(mask) -> float:
+        return round(float(mask.mean()), 4)
+
+    return {
+        "demo_date": str(demo_today()),
+        "adjuster_queue_size": int(
+            (scored["destination"].isin(["adjuster_queue", "senior_adjuster"])).sum()
+        ),
+        "siu_queue_size": int((scored["destination"] == "siu_queue").sum()),
+        "deadline_breached_rate": share(status["deadline_status"] == "Breached"),
+        "deadline_at_risk_rate": share(status["deadline_status"] == "At risk"),
+        "deadline_on_track_rate": share(status["deadline_status"] == "On track"),
+        "acknowledge_met_rate": share(status["acknowledge_status"] == "Met"),
+        "mean_priority_score": round(float(queue["priority_score"].mean()), 1),
+        "audit_records_seeded": int(len(log)),
+        "override_rate": round(log.override_rate, 4),
+        "override_eligible_decisions": int(log.override_eligible_count),
+        "is_real": False,
+        "deadline_caveat": (
+            "Deadlines are illustrative and not state-specific. The high "
+            "breach rate reflects a 2015 dataset viewed from a fixed demo "
+            "date, not an operational failure."
+        ),
+        "override_caveat": (
+            "Override rate counts only decisions where the AI made a "
+            "substantive call (fast-track or SIU referral). Claims routed to "
+            "a queue for review are excluded: there is nothing to override."
+        ),
+    }
+
+
 def build_metrics() -> dict[str, Any]:
     """Assemble every metric available at the current build phase."""
     metrics: dict[str, Any] = {
         "generated_at_utc": datetime.now(UTC).isoformat(timespec="seconds"),
         "assumptions_version": config.assumption("meta", "version"),
         "random_seed": config.random_seed(),
-        "phases_complete": ["1-setup-and-data", "2-intake-and-triage"],
+        "phases_complete": [
+            "1-setup-and-data",
+            "2-intake-and-triage",
+            "3-workbench-and-siu",
+        ],
         "disclaimer": config.DISCLAIMER,
         "reading_note": (
             "Numbers under 'dataset' and 'pii_masking' are measured. Numbers "
@@ -244,6 +302,8 @@ def build_metrics() -> dict[str, Any]:
     metrics["extraction"] = extraction_metrics()
     metrics["fraud_model"] = fraud_model_metrics()
     metrics["triage_routing"] = triage_routing_metrics()
+    metrics["reserve_model"] = reserve_model_metrics()
+    metrics["workbench"] = workbench_metrics()
     return metrics
 
 

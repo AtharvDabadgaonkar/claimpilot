@@ -1,10 +1,11 @@
 {
-  "generated_at_utc": "2026-11-23T00:03:35+00:00",
+  "generated_at_utc": "2026-11-23T01:20:31+00:00",
   "assumptions_version": "0.1.0",
   "random_seed": 20250117,
   "phases_complete": [
     "1-setup-and-data",
-    "2-intake-and-triage"
+    "2-intake-and-triage",
+    "3-workbench-and-siu"
   ],
   "disclaimer": "Demo project using public and simulated data. Not a licensed insurance product, not legal or compliance advice.",
   "reading_note": "Numbers under 'dataset' and 'pii_masking' are measured. Numbers under 'simulated_layers' derive from assumptions in config/assumptions.yaml and are not observations of a real insurer's operations.",
@@ -128,5 +129,35 @@
     "coverage_question_count": 61,
     "is_real": true,
     "stp_caveat": "The STP rate is low because of this dataset, not the design: most claims here are large (median ~$58k) and 24.7% carry the reported-fraud flag, so they fail the low-severity or low-fraud test. A realistic auto book would fast-track far more."
+  },
+  "reserve_model": {
+    "model_version": "reserve-gbq-v0.1",
+    "mae_usd": 10653.38,
+    "median_absolute_error_usd": 8715.47,
+    "r2": 0.6921,
+    "interval_coverage": 0.78,
+    "interval_coverage_target": 0.8,
+    "mean_interval_width_usd": 33863.87,
+    "n_train": 750,
+    "n_test": 250,
+    "leakage_note": "injury/property/vehicle claim components are excluded; they sum to the target and are unknown at first notice of loss",
+    "features_used": 14,
+    "is_real": true
+  },
+  "workbench": {
+    "demo_date": "2015-03-15",
+    "adjuster_queue_size": 648,
+    "siu_queue_size": 271,
+    "deadline_breached_rate": 0.715,
+    "deadline_at_risk_rate": 0.107,
+    "deadline_on_track_rate": 0.178,
+    "acknowledge_met_rate": 1.0,
+    "mean_priority_score": 98.9,
+    "audit_records_seeded": 160,
+    "override_rate": 0.1111,
+    "override_eligible_decisions": 27,
+    "is_real": false,
+    "deadline_caveat": "Deadlines are illustrative and not state-specific. The high breach rate reflects a 2015 dataset viewed from a fixed demo date, not an operational failure.",
+    "override_caveat": "Override rate counts only decisions where the AI made a substantive call (fast-track or SIU referral). Claims routed to a queue for review are excluded: there is nothing to override."
   }
 }

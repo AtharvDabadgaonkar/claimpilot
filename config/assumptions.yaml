@@ -292,3 +292,93 @@ triage:
         points: 1
     # Red-flag points needed to escalate the band by one level.
     escalate_band_at_points: 3
+
+# -----------------------------------------------------------------------------
+# Reserve model — expected ultimate cost of the claim, with a range.
+# Target is total_claim_amount. The amount components (injury/property/vehicle
+# claim) are EXCLUDED as features: they are parts of the target and would leak
+# it almost perfectly, producing a model that looks flawless and predicts
+# nothing useful at FNOL, when those components are not yet known.
+# -----------------------------------------------------------------------------
+reserve_model:
+  label: "Trained on real claim amounts from the dataset"
+  algorithm: "GradientBoostingRegressor (quantile loss)"
+  target: total_claim_amount
+  test_size: 0.25
+  # Quantiles give the adjuster a range, not false precision.
+  quantiles:
+    low: 0.10
+    point: 0.50
+    high: 0.90
+  features:
+    - incident_type
+    - collision_type
+    - incident_severity
+    - authorities_contacted
+    - bodily_injuries
+    - number_of_vehicles_involved
+    - witnesses
+    - incident_hour_of_the_day
+    - vehicle_age_years
+    - policy_deductable
+    - csl_per_person_usd
+    - csl_per_occurrence_usd
+    - missing_police_report
+    - missing_property_damage_info
+  leakage_exclusions:
+    total_claim_amount: "the target itself"
+    injury_claim: "a component of the target"
+    property_claim: "a component of the target"
+    vehicle_claim: "a component of the target"
+    injury_claim_share: "a mechanical function of the target"
+  reserve_note: >
+    The reserve suggestion comes from this model, never from the language
+    model. An LLM may describe a reserve but must never originate a number.
+
+# -----------------------------------------------------------------------------
+# Adjuster workbench: queue prioritisation and decision controls.
+# -----------------------------------------------------------------------------
+workbench:
+  # Priority score = weighted sum, higher is more urgent. SIMULATED weights.
+  label: "SIMULATED prioritisation weights"
+  priority_weights:
+    severity_high: 30
+    severity_medium: 15
+    deadline_breached: 40
+    deadline_at_risk: 25
+    fraud_high: 20
+    fraud_medium: 8
+    complexity_high: 10
+    age_days_multiplier: 0.8      # points per day since the loss was reported
+    coverage_problem: 12
+  # "Today" for the demo. The dataset's losses are Jan-Mar 2015, so a real
+  # current date would make every claim catastrophically overdue and the
+  # deadline tracker meaningless.
+  demo_today: "2015-03-15"
+  demo_today_note: >
+    Fixed demo date, chosen because the dataset's losses fall in Jan-Mar 2015.
+    Using the real current date would mark every claim a decade overdue.
+
+  # Reason codes required on an adverse or deferring decision.
+  decision_reason_codes:
+    deny:
+      - DENY_NO_COVERAGE: "No coverage in force at the date of loss"
+      - DENY_EXCLUSION: "Loss falls under a policy exclusion"
+      - DENY_MATERIAL_MISREP: "Material misrepresentation established"
+      - DENY_NOT_COVERED_PERIL: "Peril is not covered by this policy form"
+      - DENY_FAILURE_TO_COOPERATE: "Insured failed to cooperate with the investigation"
+      - DENY_OTHER: "Other (explain in the note)"
+    escalate:
+      - ESC_SUSPECTED_FRAUD: "Indicators suggest possible fraud"
+      - ESC_COMPLEX_LIABILITY: "Liability is disputed or unclear"
+      - ESC_LARGE_EXPOSURE: "Exposure exceeds adjuster authority"
+      - ESC_OTHER: "Other (explain in the note)"
+    request_info:
+      - INFO_POLICE_REPORT: "Police report required"
+      - INFO_MEDICAL_RECORDS: "Medical records required"
+      - INFO_REPAIR_ESTIMATE: "Repair estimate required"
+      - INFO_PROOF_OF_LOSS: "Signed proof of loss required"
+      - INFO_OTHER: "Other (explain in the note)"
+  # A denial note must be substantive, not a single character.
+  min_denial_note_chars: 20
+

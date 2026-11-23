@@ -393,10 +393,20 @@ def simulate_deadlines(claims: pd.DataFrame) -> pd.DataFrame:
     cfg = config.assumption("deadlines")
     reported = pd.to_datetime(claims["incident_date"])
 
+    # Digital FNOL acknowledges on submission, so the acknowledge obligation is
+    # met immediately. This matters for the tracker: a met obligation is not a
+    # pending breach, and without it every claim in a 2015 dataset reads as
+    # "breached" and the tracker says nothing.
+    rng = _rng()
+    ack_delay_hours = rng.uniform(0.1, 6.0, size=len(claims))
+    acknowledged_at = reported + pd.to_timedelta(ack_delay_hours, unit="h")
+
     return pd.DataFrame(
         {
             "claim_id": claims["claim_id"].to_numpy(),
             "reported_date": reported.to_numpy(),
+            "acknowledged_at": acknowledged_at.to_numpy(),
+            "acknowledge_met": True,
             "acknowledge_due": (
                 reported + pd.to_timedelta(int(cfg["acknowledge_days"]), unit="D")
             ).to_numpy(),

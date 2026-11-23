@@ -9,10 +9,10 @@ fair-tested and auditable.
 
 Built for the fictional carrier **Northwind Mutual**. `Intake → Triage → Route → Assist → Govern → Measure`
 
-> 🚧 **Phase 2 of 5 complete** — data foundation, FNOL intake with extraction
-> and coverage checking, and the triage + routing engine. The adjuster
-> workbench, governance views and KPI dashboard land in Phases 3–5. The live
-> link and screenshots go here once Phase 5 ships.
+> 🚧 **Phase 3 of 5 complete** — data foundation, FNOL intake, triage and
+> routing, and the adjuster workbench + SIU queue with reserve suggestions and
+> a full audit trail. Governance views and the KPI dashboard land in Phases
+> 4–5. The live link and screenshots go here once Phase 5 ships.
 
 ---
 
@@ -101,6 +101,33 @@ claims here are large (median ~$58k) and a quarter carry the reported-fraud
 flag, so they fail the low-severity or low-fraud test. A real auto carrier
 would fast-track a much larger share.
 
+**Measured — reserve model and adjuster workbench**
+
+| Metric | Value |
+|---|---|
+| Reserve model R² | 0.692 |
+| Reserve mean absolute error | $10,653 |
+| Reserve median absolute error | $8,715 |
+| 80% prediction interval — actual coverage | 78.0% |
+| Mean interval width | $33,864 |
+| Adjuster queue | 648 claims |
+| SIU queue | 271 claims |
+| Decide deadline breached | 71.5% |
+| Acknowledge deadline met | 100% |
+| Override rate (seeded demo) | 11.1% |
+
+**On the override rate.** It counts only decisions where the AI made a
+*substantive* call — a fast-track approval or an SIU referral. Routing a claim
+to an adjuster queue is the AI saying "a human should look at this", so
+whatever the adjuster then decides, nothing was overridden. Counting those
+inflated the rate to 85% and made the metric meaningless.
+
+**On the deadline breach rate.** 72% of claims have blown the
+30-day decide clock, which looks alarming and is mostly an artifact: the
+dataset's losses run Jan–Mar 2015 and the demo views them from a fixed date of
+2015-03-15. The acknowledge deadline is met on 100% of claims because
+digital FNOL acknowledges on submission.
+
 **Simulated — derived from `config/assumptions.yaml`, not observations**
 
 | Metric | Value |
@@ -183,7 +210,15 @@ Designed around the **NAIC AI Model Bulletin**. Phase 1 ships the foundations:
   Outcomes are still tested across region, age band, vehicle category and sex.
 - **Data minimisation** — personal data is masked *before* any text reaches an
   LLM. Masking happens in the provider base class, so no subclass can bypass it;
-  a test proves it.
+  a test proves it. The copilot additionally reads only a fixed allow-list of
+  claim fields, so it cannot see the policyholder's demographics at all.
+- **Every decision is justified and logged** — a denial cannot be *constructed*
+  without a valid reason code and a substantive note. The guard is in the
+  pydantic schema, not the form, so no code path can write an unjustified
+  denial to the audit trail.
+- **The reserve comes from a model, never from an LLM** — a test swaps in a
+  provider that insists the reserve is $999,999,999 and asserts the suggested
+  figure does not move.
 - **Reproducibility** — one seed in `config/assumptions.yaml` makes every
   simulated table byte-identical across runs.
 
@@ -256,6 +291,10 @@ claimpilot/
 │   ├── triage.py           # severity / complexity / fraud, with reason codes
 │   ├── routing.py          # routing engine; no auto-deny path
 │   ├── pipeline.py         # end-to-end portfolio scoring
+│   ├── reserve.py          # reserve model (quantile range, no target leakage)
+│   ├── copilot.py          # adjuster briefing; allow-listed fields only
+│   ├── workbench.py        # queue priority and deadline tracking
+│   ├── audit.py            # audit trail; denial justification enforced
 │   ├── kpis.py             # every published metric
 │   ├── ui.py               # shared page chrome and disclaimers
 │   └── llm/                # provider interface, mock fallback, PII masking

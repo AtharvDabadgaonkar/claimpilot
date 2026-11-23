@@ -24,3 +24,6 @@ if __name__ == "__main__":
     print(f"  STP rate:          {m['triage_routing']['stp_rate']:.1%}")
     print(f"  SIU referral rate: {m['triage_routing']['siu_referral_rate']:.1%}")
     print(f"  auto-denied:       {m['triage_routing']['auto_denied_count']}")
+    print(f"  reserve MAE:       ${m['reserve_model']['mae_usd']:,.0f}")
+    print(f"  reserve coverage:  {m['reserve_model']['interval_coverage']:.1%}")
+    print(f"  override rate:     {m['workbench']['override_rate']:.1%}")

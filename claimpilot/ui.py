@@ -30,6 +30,37 @@ def llm_provider():
     return get_provider()
 
 
+def get_audit_log():
+    """The session's audit log, seeded with demo history on first use.
+
+    Lives in ``st.session_state`` because Streamlit Community Cloud resets its
+    file system on restart. The UI says so, and the log exports to CSV.
+    """
+    from claimpilot.audit import seed_demo_log
+    from claimpilot.pipeline import load_scored
+
+    if "audit_log" not in st.session_state:
+        st.session_state["audit_log"] = seed_demo_log(load_scored())
+    return st.session_state["audit_log"]
+
+
+def storage_warning() -> None:
+    """Remind the reader that session storage is not permanent."""
+    st.caption(
+        "💾 Decisions are held in this browser session only. Streamlit "
+        "Community Cloud resets its file system on restart, so this log is "
+        "**not permanent** — use the CSV export to keep it."
+    )
+
+
+@st.cache_resource(show_spinner=False)
+def reserve_bundle():
+    """Load the reserve model once per server process."""
+    from claimpilot.reserve import load_model
+
+    return load_model()
+
+
 def page_setup(title: str, subtitle: str = "") -> None:
     """Standard page header. Call first in every page."""
     st.set_page_config(
