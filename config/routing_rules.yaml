@@ -1,0 +1,90 @@
+# ClaimPilot routing rules.
+#
+# Rules are evaluated IN ORDER; the first whose conditions all match wins.
+# `fallback` catches anything that matches nothing.
+#
+# ============================================================================
+# HARD PRODUCT RULE: the system can auto-approve, but it can NEVER auto-deny.
+# `allowed_destinations` below is the complete set of outcomes routing may
+# produce. There is no denial destination, and claimpilot.routing refuses to
+# load this file if one is ever added. Every potential denial goes to a human.
+# ============================================================================
+
+version: "routing-v0.1"
+
+allowed_destinations:
+  - stp_auto_approve      # fast-track: automated approval of the payout
+  - adjuster_queue        # standard human handling
+  - senior_adjuster       # complex claims needing experience
+  - siu_queue             # suspected fraud: referred for investigation
+
+# Destinations that represent a final adverse decision. Routing may never
+# produce one of these; they exist here only so the guard has something to
+# check against.
+forbidden_destinations:
+  - auto_deny
+  - deny
+  - reject
+  - auto_reject
+  - close_without_payment
+
+rules:
+  - name: "Coverage not in force"
+    description: >
+      The policy was not in force at the date of loss. This is the single most
+      likely path to a denial, which is exactly why it must be human-reviewed.
+      The system never closes these itself.
+    when:
+      coverage_status: ["Not in force at date of loss"]
+    destination: senior_adjuster
+    reason: >
+      Policy not in force at the date of loss. Referred for human coverage
+      review; the system cannot deny a claim.
+
+  - name: "High fraud signal"
+    description: Suspected fraud goes to SIU regardless of size.
+    when:
+      fraud_band: ["High"]
+    destination: siu_queue
+    reason: High fraud signal; referred to SIU for investigation.
+
+  - name: "High complexity"
+    description: Injuries, disputed liability or open coverage questions.
+    when:
+      complexity_band: ["High"]
+    destination: senior_adjuster
+    reason: High complexity; assigned to a senior adjuster.
+
+  - name: "Open coverage question"
+    description: Cover may not reach this loss; a human decides, never the system.
+    when:
+      coverage_status: ["Coverage question", "Unknown"]
+    destination: senior_adjuster
+    reason: >
+      Open coverage question. Referred for human review; the system cannot
+      deny a claim.
+
+  - name: "STP fast-track"
+    description: >
+      Simple, small, low-risk and clearly covered. The only automated outcome,
+      and it only ever approves.
+    when:
+      severity_band: ["Low"]
+      complexity_band: ["Low"]
+      fraud_band: ["Low"]
+      coverage_status: ["Confirmed"]
+    destination: stp_auto_approve
+    reason: >
+      Low severity, low complexity, low fraud signal and coverage confirmed;
+      auto-approved for straight-through processing.
+
+  - name: "High severity"
+    description: Large claims get an experienced adjuster even when simple.
+    when:
+      severity_band: ["High"]
+    destination: senior_adjuster
+    reason: High severity exposure; assigned to a senior adjuster.
+
+fallback:
+  destination: adjuster_queue
+  reason: Standard handling by an adjuster.

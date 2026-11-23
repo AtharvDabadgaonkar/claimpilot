@@ -19,3 +19,8 @@ if __name__ == "__main__":
     print(f"  PII detection:     {m['pii_masking']['detection_rate']:.1%}")
     print(f"  false positives:   {m['pii_masking']['false_positive_count_on_clean_narratives']}")
     print(f"  excluded fields:   {m['governance']['fields_excluded_count']}")
+    print(f"  extraction acc:    {m['extraction']['field_accuracy']:.1%}")
+    print(f"  fraud AUC (CV):    {m['fraud_model']['roc_auc_cv_mean']:.3f}")
+    print(f"  STP rate:          {m['triage_routing']['stp_rate']:.1%}")
+    print(f"  SIU referral rate: {m['triage_routing']['siu_referral_rate']:.1%}")
+    print(f"  auto-denied:       {m['triage_routing']['auto_denied_count']}")

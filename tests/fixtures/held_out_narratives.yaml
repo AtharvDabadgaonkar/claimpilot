@@ -1,0 +1,149 @@
+# Hand-written FNOL descriptions that deliberately do NOT follow the phrasing
+# used by scripts/simulate.py.
+#
+# Why this file exists: the generated corpus was written from templates, and
+# the rule-based extractor was written against those templates. Scoring it on
+# that corpus is close to circular and will flatter it. These cases are the
+# honest check — messy, abbreviated, differently worded claimant text — and the
+# accuracy measured here is the number that actually says something about
+# robustness.
+#
+# `expect` holds only what the text genuinely states. Where a field is absent
+# the expected value is null, because refusing to guess is correct behaviour.
+
+- id: held-01
+  note: lowercase, no punctuation, texting style
+  text: >-
+    rear ended on the 405 on march 3 2015 in torrance CA nobody hurt
+    cops didnt come my 2013 honda accord has maybe $2,400 of damage
+  expect:
+    loss_type: Multi-vehicle Collision
+    collision_type: Rear Collision
+    injury_reported: false
+    num_injured: 0
+    police_report_available: false
+    city: null
+    state: null
+    auto_make: Honda
+    auto_year: 2013
+    estimated_amount_usd: 2400.0
+
+- id: held-02
+  note: formal, spelled-out numbers, ISO date
+  text: >-
+    On 2015-02-11 in Columbus, OH my vehicle was struck on the side by another
+    car. Two people were injured and an ambulance attended. The police filed a
+    report. There were three witnesses. The vehicle is a 2011 Toyota Camry.
+  expect:
+    loss_type: Multi-vehicle Collision
+    collision_type: Side Collision
+    injury_reported: true
+    num_injured: 2
+    police_report_available: true
+    witnesses: 3
+    city: Columbus
+    state: OH
+    auto_make: Toyota
+    auto_year: 2011
+
+- id: held-03
+  note: theft, no amount stated, vague
+  text: >-
+    I parked outside my building on 01/18/2015 in Riverwood, VA and when I came
+    down the next morning the car was gone. Reported it and the police took a
+    report. It is a 2007 Mercedes E400. No idea what it is worth now.
+  expect:
+    loss_type: Vehicle Theft
+    collision_type: Not applicable
+    police_report_available: true
+    num_vehicles: 1
+    city: Riverwood
+    state: VA
+    auto_make: Mercedes
+    auto_year: 2007
+    estimated_amount_usd: null
+
+- id: held-04
+  note: hit and run on a parked car, minimal detail
+  text: >-
+    Someone hit my parked car overnight and drove off. March 1, 2015,
+    Arlington, NY. 2009 Ford Focus. No witnesses.
+  expect:
+    loss_type: Parked Car
+    collision_type: Not applicable
+    witnesses: 0
+    num_vehicles: 1
+    city: Arlington
+    state: NY
+    auto_make: Ford
+    auto_year: 2009
+
+- id: held-05
+  note: head-on, injuries described without a count
+  text: >-
+    Head-on collision in Springfield, SC on January 29, 2015. I was taken to
+    hospital with injuries. My 2012 Nissan Altima is a write-off. Police
+    attended the scene.
+  expect:
+    loss_type: Unknown
+    collision_type: Front Collision
+    injury_reported: true
+    num_injured: null
+    police_report_available: true
+    city: Springfield
+    state: SC
+    auto_make: Nissan
+    auto_year: 2012
+
+- id: held-06
+  note: pile-up with explicit count, amount with cents
+  text: >-
+    A pile-up involving 4 vehicles happened on February 2, 2015 in Northbend,
+    WV. I was hit from behind. One person was injured. Damage to my 2015 BMW
+    328i is about $18,750.00.
+  expect:
+    loss_type: Multi-vehicle Collision
+    collision_type: Rear Collision
+    injury_reported: true
+    num_injured: 1
+    num_vehicles: 4
+    city: Northbend
+    state: WV
+    auto_make: BMW
+    auto_year: 2015
+    estimated_amount_usd: 18750.0
+
+- id: held-07
+  note: silence about police and injuries — must stay null, not default to false
+  text: >-
+    I skidded on ice and collided with a guardrail on January 5, 2015 in
+    Hillsdale, PA. The front of my car is badly damaged. It is a 2008
+    Volkswagen Golf.
+  expect:
+    loss_type: Single Vehicle Collision
+    collision_type: Front Collision
+    injury_reported: null
+    num_injured: null
+    police_report_available: null
+    witnesses: null
+    num_vehicles: 1
+    city: Hillsdale
+    state: PA
+    auto_make: Volkswagen
+    auto_year: 2008
+
+- id: held-08
+  note: vague amount phrase must NOT be read as a number
+  text: >-
+    My car was sideswiped on February 20, 2015 in Columbus, OH. Nobody was
+    hurt. It will probably cost a few thousand dollars to fix. 2010 Dodge RAM.
+  expect:
+    loss_type: Unknown
+    collision_type: Side Collision
+    injury_reported: false
+    num_injured: 0
+    estimated_amount_usd: null
+    city: Columbus
+    state: OH
+    auto_make: Dodge
+    auto_year: 2010

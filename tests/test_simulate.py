@@ -82,19 +82,58 @@ def test_narratives_are_substantive(narratives):
 
 
 def test_narrative_ground_truth_matches_source_claim(claims, narratives):
-    """Ground truth is what makes extraction accuracy measurable, not asserted."""
+    """Ground truth is what makes extraction accuracy measurable, not asserted.
+
+    Truth records what the narrative STATES, not the underlying row value. A
+    field the text never mentions is None, so that an extractor which refuses
+    to invent it scores as correct. Fields that are always stated must still
+    agree exactly with the source row.
+    """
     merged = narratives.merge(claims, on="claim_id")
+
+    # Always stated in every narrative.
     assert (merged["truth_loss_type"] == merged["incident_type"]).all()
     assert (merged["truth_num_vehicles"] == merged["number_of_vehicles_involved"]).all()
     assert (merged["truth_auto_make"] == merged["auto_make"]).all()
-    assert (merged["truth_num_injured"] == merged["bodily_injuries"]).all()
-    assert (
-        merged["truth_injury_reported"] == (merged["bodily_injuries"] > 0)
-    ).all()
     assert (
         pd.to_datetime(merged["truth_loss_date"])
         == pd.to_datetime(merged["incident_date"])
     ).all()
+
+    # Stated only sometimes: where present, it must match the source row.
+    stated_injury = merged["truth_num_injured"].notna()
+    assert stated_injury.any()
+    assert (
+        merged.loc[stated_injury, "truth_num_injured"]
+        == merged.loc[stated_injury, "bodily_injuries"]
+    ).all()
+    assert (
+        merged.loc[stated_injury, "truth_injury_reported"]
+        == (merged.loc[stated_injury, "bodily_injuries"] > 0)
+    ).all()
+
+    stated_witnesses = merged["truth_witnesses"].notna()
+    assert (
+        merged.loc[stated_witnesses, "truth_witnesses"]
+        == merged.loc[stated_witnesses, "witnesses"]
+    ).all()
+
+
+def test_unstated_fields_are_null_in_ground_truth(narratives):
+    """Silence in the narrative must be None, never a fabricated zero."""
+    # Witnesses are only mentioned when there are some, so zero-witness claims
+    # must carry a null rather than a 0 nobody wrote down.
+    assert narratives["truth_witnesses"].isna().any()
+    assert narratives["truth_num_injured"].isna().any()
+
+
+def test_theft_and_parked_car_truth_is_not_applicable(narratives):
+    """A theft claim has no collision direction, and that is derivable."""
+    theft = narratives[narratives["truth_loss_type"].isin(
+        ["Vehicle Theft", "Parked Car"]
+    )]
+    assert len(theft) > 0
+    assert (theft["truth_collision_type"] == "Not applicable").all()
 
 
 def test_narrative_states_the_real_amount_when_not_vague(claims, narratives):

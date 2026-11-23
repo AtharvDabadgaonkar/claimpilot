@@ -176,3 +176,119 @@ narratives:
   include_pii_rate: 0.45           # share of narratives that embed contact details
   omit_field_rate: 0.18            # realistic incompleteness for the extractor
   vague_amount_rate: 0.25          # "a few thousand dollars" instead of a figure
+
+# -----------------------------------------------------------------------------
+# Fraud model — feature policy and threshold.
+# The allow-list is explicit: a field must be named here to reach the model.
+# Anything not listed is excluded by default, which is the safer direction.
+# -----------------------------------------------------------------------------
+fraud_model:
+  label: "Trained on the real fraud_reported flag (a reported flag, not an adjudicated finding)"
+  algorithm: "HistGradientBoostingClassifier"
+  test_size: 0.25
+  cv_folds: 5
+  # Tuned against SIU capacity, not against F1.
+  threshold: 0.35
+  siu_capacity_share: 0.25      # SIMULATED: share of claims SIU can review
+  threshold_rationale: >
+    Chosen to maximise recall subject to the referral rate staying within the
+    assumed SIU capacity of 25% of claims. F1 is actually higher at a 0.20
+    threshold (0.61 vs 0.56), but that flags 33% of all claims for
+    investigation, which no SIU function could absorb. Capacity is the binding
+    constraint in claims operations, so the threshold is set against capacity
+    and the cost of a missed fraud, not against a balanced score.
+    On a real portfolio this would be re-tuned continuously against measured
+    SIU hit rate and actual capacity, and the much lower real-world base rate
+    would push the referral rate far below this.
+  numeric_features:
+    - months_as_customer
+    - policy_deductable
+    - policy_annual_premium
+    - umbrella_limit
+    - csl_per_person_usd
+    - csl_per_occurrence_usd
+    - incident_hour_of_the_day
+    - number_of_vehicles_involved
+    - bodily_injuries
+    - witnesses
+    - total_claim_amount
+    - injury_claim
+    - property_claim
+    - vehicle_claim
+    - vehicle_age_years
+  categorical_features:
+    - incident_type
+    - collision_type
+    - incident_severity
+    - authorities_contacted
+  boolean_features:
+    - missing_police_report
+    - missing_property_damage_info
+  # Deliberately NOT model inputs, beyond the protected list above:
+  additional_exclusions:
+    incident_state: "geographic proxy; outcomes are tested by region instead"
+    incident_city: "geographic proxy, and synthetic in this dataset"
+    auto_make: "wealth proxy; outcomes are tested by vehicle category instead"
+    capital_gains: "socio-economic proxy"
+    capital_loss: "socio-economic proxy"
+    injury_claim_share: "mechanical function of total_claim_amount; leaks nothing useful"
+
+# -----------------------------------------------------------------------------
+# Triage scoring. Bands and weights are deliberately simple and legible:
+# an adjuster or a regulator must be able to follow why a claim scored as it
+# did, which matters more here than squeezing out predictive performance.
+# -----------------------------------------------------------------------------
+triage:
+  severity:
+    # Expected-cost bands in USD, from the claim amount.
+    # Calibrated to this dataset's distribution (median ~$58k), which is itself
+    # unusual; a real carrier would band against its own severity curve.
+    low_max_usd: 25000
+    medium_max_usd: 60000
+    # Above medium_max_usd is High.
+    total_loss_forces_high: true
+
+  complexity:
+    # Points, summed then banded. Each carries a reason code.
+    points:
+      injury_reported: 3
+      multiple_injuries: 2          # on top of injury_reported
+      multi_party: 2
+      many_vehicles: 1              # 3 or more
+      missing_police_report: 1
+      missing_property_damage_info: 1
+      coverage_question: 3
+      coverage_not_in_force: 4
+      no_witnesses_disputed: 1
+      high_value: 2                 # above severity.medium_max_usd
+    # Calibrated against the observed points distribution on this dataset so
+    # the bands split roughly 25% / 44% / 31%. An earlier 2/5 split pushed 55%
+    # of claims into High, which would send most of the book to senior
+    # adjusters and defeat the point of triage.
+    low_max_points: 3
+    medium_max_points: 7
+    # Above medium_max_points is High.
+
+  fraud:
+    # Model probability bands.
+    low_max: 0.20
+    medium_max: 0.35               # aligned with fraud_model.threshold
+    # Red-flag rules run alongside the model and carry their own reason codes.
+    # These are classic P&C indicators, kept few and legible on purpose.
+    red_flags:
+      late_night_incident:
+        hours: [0, 1, 2, 3, 4]
+        points: 1
+      no_police_report_high_value:
+        min_amount_usd: 50000
+        points: 2
+      recent_policy_short_tenure:
+        max_months_as_customer: 6
+        points: 2
+      no_witnesses_no_report:
+        points: 1
+      high_claim_low_premium:
+        ratio: 40                   # claim / annual premium
+        points: 1
+    # Red-flag points needed to escalate the band by one level.
+    escalate_band_at_points: 3

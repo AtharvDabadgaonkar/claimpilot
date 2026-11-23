@@ -5,13 +5,15 @@ PYTHON ?= python3.11
 VENV   := .venv
 BIN    := $(VENV)/bin
 
-.PHONY: help setup data simulate run test metrics lint check-deploy clean all
+.PHONY: help setup data simulate models score run test metrics lint check-deploy clean all
 
 help:
 	@echo "ClaimPilot targets:"
 	@echo "  make setup         create .venv and install dev dependencies"
 	@echo "  make data          download + process the source dataset"
 	@echo "  make simulate      generate simulated narratives/policies/costs"
+	@echo "  make models        train and persist the models"
+	@echo "  make score         score the whole portfolio (triage + routing)"
 	@echo "  make all           data + simulate + metrics"
 	@echo "  make run           launch the Streamlit app locally"
 	@echo "  make test          run the pytest suite"
@@ -34,11 +36,17 @@ data: setup
 simulate: data
 	$(BIN)/python scripts/simulate.py
 
+models: simulate
+	$(BIN)/python scripts/train_models.py
+
+score: models
+	$(BIN)/python scripts/score.py
+
 metrics: setup
 	$(BIN)/python scripts/metrics.py
 
-all: simulate metrics
-	@echo "Data pipeline complete."
+all: score metrics
+	@echo "Pipeline complete: data -> simulate -> models -> score -> metrics."
 
 run: setup
 	$(BIN)/streamlit run streamlit_app.py

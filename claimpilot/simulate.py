@@ -70,6 +70,12 @@ _EVENT_BY_TYPE = {
     ],
 }
 
+_NO_COLLISION_TYPES = {"Vehicle Theft", "Parked Car"}
+
+# The ordinal must match the real vehicle count, otherwise the count is
+# not recoverable from the narrative and ground truth is unachievable.
+_ORDINALS = {2: "second", 3: "third", 4: "fourth", 5: "fifth"}
+
 _OBSTACLES = ["a guardrail", "a utility pole", "a concrete barrier", "a tree", "a road sign"]
 _DRIVING_CTX = [
     "on my way home from work", "driving to the store", "heading to work",
@@ -222,7 +228,7 @@ def _build_narrative(
     event = event_tpl.format(
         obstacle=rng.choice(_OBSTACLES),
         n=n_veh if n_veh > 1 else 2,
-        nth="third" if n_veh > 2 else "second",
+        nth=_ORDINALS.get(n_veh, "another"),
     )
     opener = rng.choice(_OPENERS).format(
         driving_ctx=rng.choice(_DRIVING_CTX), event=event
@@ -241,7 +247,8 @@ def _build_narrative(
 
     # Collision direction, where applicable.
     if ctype in _COLLISION_PHRASE and not omit_fields:
-        sentences.append(_COLLISION_PHRASE[ctype] + ".")
+        phrase = _COLLISION_PHRASE[ctype]
+        sentences.append(phrase[0].upper() + phrase[1:] + ".")
 
     # Severity.
     sentences.append(_SEVERITY_PHRASE.get(sev, "There is damage to the vehicle."))
@@ -297,19 +304,35 @@ def _build_narrative(
 
     text = " ".join(sentences)
 
-    # Ground truth: what a perfect extractor should return from this text.
+    # Ground truth: what a perfect extractor should return FROM THIS TEXT.
+    #
+    # This is deliberately not "the underlying row value". If the narrative
+    # never mentions witnesses, the correct extraction is None ("not stated"),
+    # not 0 — silence is a documentation gap, not a negative answer. Scoring
+    # against the row value instead would penalise the extractor for refusing
+    # to invent facts, which is exactly the behaviour we want.
+    collision_stated = ctype in _COLLISION_PHRASE and not omit_fields
+    injury_stated = injuries > 0 or not omit_fields
+    witnesses_stated = witnesses > 0 and not omit_fields
+
     truth = {
         "loss_date": loss_date.date().isoformat(),
         "loss_type": itype,
-        "collision_type": ctype if (ctype in _COLLISION_PHRASE and not omit_fields) else None,
+        # A theft or parked-car claim has no collision direction to state, and
+        # that is derivable from the text itself.
+        "collision_type": (
+            ctype
+            if collision_stated
+            else ("Not applicable" if itype in _NO_COLLISION_TYPES else None)
+        ),
         "severity_stated": sev,
-        "injury_reported": injuries > 0,
-        "num_injured": injuries,
+        "injury_reported": (injuries > 0) if injury_stated else None,
+        "num_injured": injuries if injury_stated else None,
         "police_report_available": (
             bool(row["police_report_available"]) if police_known and not omit_fields else None
         ),
         "num_vehicles": n_veh,
-        "witnesses": witnesses if (witnesses > 0 and not omit_fields) else (0 if not omit_fields else None),
+        "witnesses": witnesses if witnesses_stated else None,
         "city": row["incident_city"],
         "state": row["incident_state"],
         "auto_make": row["auto_make"],

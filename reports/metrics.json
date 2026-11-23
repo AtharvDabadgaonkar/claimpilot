@@ -1,9 +1,10 @@
 {
-  "generated_at_utc": "2026-11-22T23:45:28+00:00",
+  "generated_at_utc": "2026-11-23T00:03:35+00:00",
   "assumptions_version": "0.1.0",
   "random_seed": 20250117,
   "phases_complete": [
-    "1-setup-and-data"
+    "1-setup-and-data",
+    "2-intake-and-triage"
   ],
   "disclaimer": "Demo project using public and simulated data. Not a licensed insurance product, not legal or compliance advice.",
   "reading_note": "Numbers under 'dataset' and 'pii_masking' are measured. Numbers under 'simulated_layers' derive from assumptions in config/assumptions.yaml and are not observations of a real insurer's operations.",
@@ -57,5 +58,75 @@
     "fields_excluded_count": 9,
     "auto_deny_paths": 0,
     "auto_deny_note": "the system can auto-approve but never auto-deny"
+  },
+  "extraction": {
+    "narratives_scored": 1000,
+    "fields_scored": 11000,
+    "field_accuracy": 1.0,
+    "per_field_accuracy": {
+      "loss_type": 1.0,
+      "loss_date": 1.0,
+      "num_injured": 1.0,
+      "police_report_available": 1.0,
+      "num_vehicles": 1.0,
+      "witnesses": 1.0,
+      "city": 1.0,
+      "state": 1.0,
+      "auto_make": 1.0,
+      "auto_year": 1.0,
+      "stated_amount_usd": 1.0
+    },
+    "mean_completeness": 0.8246,
+    "extractor": "rules-v0.1 (regex, no LLM)",
+    "is_real": true,
+    "accuracy_caveat": "NOT a production accuracy estimate. The narratives were generated from templates and the regular expressions were written against those templates, so this figure is close to circular. The hand-written paraphrase set in tests/fixtures was also used while tuning, so no genuinely held-out evaluation exists: all text in this project is synthetic. Read this as 'the regression suite passes', not as evidence the extractor would handle real claimant writing."
+  },
+  "fraud_model": {
+    "model_version": "fraud-hgb-v0.1",
+    "roc_auc_test": 0.8033,
+    "roc_auc_cv_mean": 0.7408,
+    "roc_auc_cv_std": 0.0137,
+    "average_precision_test": 0.5594,
+    "brier_test": 0.1486,
+    "threshold": 0.35,
+    "precision_at_threshold": 0.5763,
+    "recall_at_threshold": 0.5484,
+    "flag_rate_at_threshold": 0.236,
+    "base_rate": 0.247,
+    "n_train": 750,
+    "n_test": 250,
+    "label_caveat": "fraud_reported is a reported flag, not an adjudicated finding",
+    "precision_caveat": "the ~25% base rate here is far above a real auto portfolio, so precision is optimistic and would fall sharply in production",
+    "features_used": 21,
+    "is_real": true
+  },
+  "triage_routing": {
+    "claims_routed": 1000,
+    "stp_rate": 0.081,
+    "siu_referral_rate": 0.271,
+    "senior_adjuster_rate": 0.47,
+    "adjuster_queue_rate": 0.178,
+    "requires_human_rate": 0.919,
+    "auto_denied_count": 0,
+    "severity_bands": {
+      "High": 0.591,
+      "Medium": 0.231,
+      "Low": 0.178
+    },
+    "complexity_bands": {
+      "Medium": 0.441,
+      "High": 0.309,
+      "Low": 0.25
+    },
+    "fraud_bands": {
+      "Low": 0.525,
+      "High": 0.29,
+      "Medium": 0.185
+    },
+    "coverage_confirmed_rate": 0.905,
+    "coverage_not_in_force_count": 34,
+    "coverage_question_count": 61,
+    "is_real": true,
+    "stp_caveat": "The STP rate is low because of this dataset, not the design: most claims here are large (median ~$58k) and 24.7% carry the reported-fraud flag, so they fail the low-severity or low-fraud test. A realistic auto book would fast-track far more."
   }
 }

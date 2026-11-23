@@ -97,13 +97,141 @@ def data_foundation_metrics() -> dict[str, Any]:
     }
 
 
+def extraction_metrics() -> dict[str, Any]:
+    """Measured accuracy of the rule-based FNOL extractor.
+
+    Scored against what each narrative *states*, not against the underlying
+    row, so refusing to invent an unstated value counts as correct.
+    """
+    import pandas as pd
+
+    from claimpilot.intake import extract_fnol
+
+    narratives = pd.read_parquet(config.NARRATIVES_PARQUET)
+    checks = {
+        "loss_type": lambda e: e.loss_type.value,
+        "loss_date": lambda e: e.loss_date.isoformat() if e.loss_date else None,
+        "num_injured": lambda e: e.num_injured,
+        "police_report_available": lambda e: e.police_report_available,
+        "num_vehicles": lambda e: e.num_vehicles,
+        "witnesses": lambda e: e.witnesses,
+        "city": lambda e: e.city,
+        "state": lambda e: e.state,
+        "auto_make": lambda e: e.auto_make,
+        "auto_year": lambda e: e.auto_year,
+        "stated_amount_usd": lambda e: e.estimated_amount_usd,
+    }
+    correct = total = 0
+    per_field: dict[str, float] = {}
+    completeness: list[float] = []
+
+    for _, row in narratives.iterrows():
+        extracted = extract_fnol(row["narrative"])
+        completeness.append(extracted.completeness)
+        for field, getter in checks.items():
+            truth = row[f"truth_{field}"]
+            if (
+                truth is not None
+                and not isinstance(truth, bool | str)
+                and pd.isna(truth)
+            ):
+                truth = None
+            got = getter(extracted)
+            if truth is None and got is None:
+                ok = True
+            elif truth is None or got is None:
+                ok = False
+            elif isinstance(truth, int | float) and not isinstance(truth, bool):
+                ok = abs(float(truth) - float(got)) < 1
+            else:
+                ok = str(truth) == str(got)
+            per_field[field] = per_field.get(field, 0) + int(ok)
+            correct += int(ok)
+            total += 1
+
+    n = len(narratives)
+    return {
+        "narratives_scored": int(n),
+        "fields_scored": int(total),
+        "field_accuracy": round(correct / total, 4),
+        "per_field_accuracy": {k: round(v / n, 4) for k, v in per_field.items()},
+        "mean_completeness": round(float(sum(completeness) / n), 4),
+        "extractor": "rules-v0.1 (regex, no LLM)",
+        "is_real": True,
+        "accuracy_caveat": (
+            "NOT a production accuracy estimate. The narratives were generated "
+            "from templates and the regular expressions were written against "
+            "those templates, so this figure is close to circular. The "
+            "hand-written paraphrase set in tests/fixtures was also used while "
+            "tuning, so no genuinely held-out evaluation exists: all text in "
+            "this project is synthetic. Read this as 'the regression suite "
+            "passes', not as evidence the extractor would handle real "
+            "claimant writing."
+        ),
+    }
+
+
+def triage_routing_metrics() -> dict[str, Any]:
+    """Portfolio-level outcomes of triage and routing."""
+    from claimpilot.pipeline import load_scored
+
+    scored = load_scored()
+    n = len(scored)
+
+    def share(mask) -> float:
+        return round(float(mask.mean()), 4)
+
+    return {
+        "claims_routed": int(n),
+        "stp_rate": share(scored["auto_approved"]),
+        "siu_referral_rate": share(scored["destination"] == "siu_queue"),
+        "senior_adjuster_rate": share(scored["destination"] == "senior_adjuster"),
+        "adjuster_queue_rate": share(scored["destination"] == "adjuster_queue"),
+        "requires_human_rate": share(scored["requires_human"]),
+        "auto_denied_count": 0,
+        "severity_bands": {
+            k: round(v, 4)
+            for k, v in scored["severity_band"].value_counts(normalize=True).items()
+        },
+        "complexity_bands": {
+            k: round(v, 4)
+            for k, v in scored["complexity_band"].value_counts(normalize=True).items()
+        },
+        "fraud_bands": {
+            k: round(v, 4)
+            for k, v in scored["fraud_band"].value_counts(normalize=True).items()
+        },
+        "coverage_confirmed_rate": share(scored["coverage_status"] == "Confirmed"),
+        "coverage_not_in_force_count": int(
+            (scored["coverage_status"] == "Not in force at date of loss").sum()
+        ),
+        "coverage_question_count": int(
+            (scored["coverage_status"] == "Coverage question").sum()
+        ),
+        "is_real": True,
+        "stp_caveat": (
+            "The STP rate is low because of this dataset, not the design: most "
+            "claims here are large (median ~$58k) and 24.7% carry the "
+            "reported-fraud flag, so they fail the low-severity or low-fraud "
+            "test. A realistic auto book would fast-track far more."
+        ),
+    }
+
+
+def fraud_model_metrics() -> dict[str, Any]:
+    from claimpilot.fraud_model import load_model
+
+    bundle = load_model()
+    return {**bundle["metrics"], "features_used": len(bundle["features"]), "is_real": True}
+
+
 def build_metrics() -> dict[str, Any]:
     """Assemble every metric available at the current build phase."""
     metrics: dict[str, Any] = {
         "generated_at_utc": datetime.now(UTC).isoformat(timespec="seconds"),
         "assumptions_version": config.assumption("meta", "version"),
         "random_seed": config.random_seed(),
-        "phases_complete": ["1-setup-and-data"],
+        "phases_complete": ["1-setup-and-data", "2-intake-and-triage"],
         "disclaimer": config.DISCLAIMER,
         "reading_note": (
             "Numbers under 'dataset' and 'pii_masking' are measured. Numbers "
@@ -113,6 +241,9 @@ def build_metrics() -> dict[str, Any]:
         ),
     }
     metrics.update(data_foundation_metrics())
+    metrics["extraction"] = extraction_metrics()
+    metrics["fraud_model"] = fraud_model_metrics()
+    metrics["triage_routing"] = triage_routing_metrics()
     return metrics
 
 
