@@ -157,7 +157,7 @@ with right:
     st.markdown("#### Reserve suggestion")
     st.metric("Suggested reserve", f"${briefing.reserve.point_usd:,.0f}")
     st.caption(
-        f"Range ${briefing.reserve.low_usd:,.0f} – ${briefing.reserve.high_usd:,.0f} "
+        f"Range \\${briefing.reserve.low_usd:,.0f} – \\${briefing.reserve.high_usd:,.0f} "
         "(10th–90th percentile)"
     )
     how_calculated(

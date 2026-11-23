@@ -9,11 +9,30 @@ fair-tested and auditable.
 
 Built for the fictional carrier **Northwind Mutual**. `Intake → Triage → Route → Assist → Govern → Measure`
 
-> 🚧 **Phase 4 of 5 complete** — data foundation, FNOL intake, triage and
-> routing, the adjuster workbench + SIU queue, and the governance layer:
-> audit trail, fairness testing, model inventory and monitoring. The backtest
-> and KPI dashboard land in Phase 5. The live link and screenshots go here
-> once Phase 5 ships.
+**▶️ Live demo:** _paste your Streamlit Community Cloud URL here after deploying_ — see [Deploy it yourself](#deploy-it-yourself).
+
+> 📸 _Screenshot goes here._ Run `make run`, open the Overview page, and save a
+> capture to `docs/screenshot.png`, then reference it above this line.
+
+> ✅ **All 5 phases complete** — data foundation; FNOL intake, triage and
+> routing; adjuster workbench and SIU queue; governance (audit trail, fairness
+> testing, model inventory, monitoring); and the backtest, KPI dashboard and
+> deployment.
+
+---
+
+## The four numbers that matter
+
+| | |
+|---|---|
+| Claims fast-tracked with no human touch | **8.1%** |
+| Claims auto-denied | **0** — structurally impossible |
+| Total cost of handling vs. all-manual | **-4.8%** (expense + estimated leakage) |
+| Fairness tests flagged | **5 of 8** — worst ratio 0.355 |
+
+Two of those are good news and two are not, which is the point. The last row is
+a real failure, reported rather than buried — see
+[the fairness section](#-this-portfolio-fails-its-own-fairness-check).
 
 ---
 
@@ -175,6 +194,62 @@ not a legal test for claims handling. See [`docs/AI_GOVERNANCE.md`](docs/AI_GOVE
 | Manual-baseline mean cycle time | 26.2 days |
 | Manual-baseline mean LAE per claim | $803 |
 
+**Backtest and operating KPIs — ClaimPilot vs. an all-manual arm**
+
+| Metric | All manual | ClaimPilot | Change |
+|---|---|---|---|
+| Mean adjuster touch time | 8.97 h | 9.55 h | +6.5% |
+| Mean cycle time | 26.2 d | 26.8 d | +2.3% |
+| Time to first contact | 26 h | 2 h | -92% |
+| LAE per claim | $803 | $916 | +14.2% |
+| Estimated leakage (total) | $2,867,214 | $2,577,859 | $-289,356 |
+| **LAE + leakage (total)** | **$3,669,844** | **$3,494,219** | **-4.8%** |
+| Adjuster FTE-months | 64.1 | 68.2 | +4.1 |
+| Reopen rate | 8.5% | 6.5% | — |
+| SIU referral hit rate | — | 73.8% | vs. 24.7% base rate |
+
+### Automation made this book more expensive, and the dashboard says so
+
+Expense per claim went **up** +14.2% and mean cycle time went
+**up** +2.3%. That is not a bug in the arithmetic — it is the
+result of referring 27.1% of the book to investigation when the
+all-manual arm investigates nothing at all. Total cost still falls
+4.8%, but only once estimated leakage is counted.
+
+The break-even is exact, because SIU time is the only term that scales with the
+referral count:
+
+- The automation saves **$184,369** against the manual arm before any
+  investigation spend.
+- Each referral costs **$1,100**, so the book can carry
+  **167 referrals (16.8%)** before automation stops paying for
+  the SIU programme on expense alone.
+- This dataset forces **271 (27.1%)**, so the investigation programme costs more than the automation saves.
+
+**That is a property of the dataset, not the design.** A 24.7% reported-fraud
+rate is an order of magnitude above a real auto portfolio. At a realistic flag
+rate the referral volume sits well under the break-even line. Quantifying that
+is more useful than a headline saving would have been.
+
+### The backtest is not evidence, and is labelled as such
+
+The two arms are **paired**: the ClaimPilot arm is derived from each claim's own
+baseline random draw by applying the route multipliers in
+`config/assumptions.yaml`. Pairing removes sampling noise — the deltas are
+stable and reproducible — but stability is not validity:
+
+> Every delta in the table above is an **arithmetic consequence of the
+> assumptions**, not a measured outcome.
+
+A real backtest replays decisions against *observed* results. This one replays
+them against *assumed* results, because the public dataset contains no handling
+times, costs or leakage. The only measured figures in the backtest are the
+routing mix and the SIU hit rate. The honest claim is "here is the operating
+model, and here is exactly how its headline numbers fall out of its
+assumptions" — and the weakest joint is named in the config: the manual arm's
+fraud-miss rate is a flat assumption, while ClaimPilot's is derived from actual
+routing, so the two are not like-for-like.
+
 ---
 
 ## ⚠️ Read these caveats before the numbers
@@ -229,7 +304,7 @@ area code, so nothing is deliverable.
 
 ## AI governance
 
-Designed around the **NAIC AI Model Bulletin**. Phase 1 ships the foundations:
+Designed around the **NAIC AI Model Bulletin**:
 
 - **Human-in-the-loop by construction** — auto-approve is permitted, auto-deny
   is not, and this is enforced structurally rather than by convention. The
@@ -316,6 +391,7 @@ without one. To use a hosted LLM, copy `.streamlit/secrets.toml.example` to
 | `make test` | Run the pytest suite |
 | `make models` | Train and persist the models |
 | `make score` | Score the whole portfolio (triage + routing) |
+| `make backtest` | Build the ClaimPilot vs. all-manual comparison arms |
 | `make lint` | `ruff check` |
 | `make metrics` | Recompute `reports/metrics.json` |
 | `make check-deploy` | Fresh venv with **runtime deps only**, boot the app headless for 20s |
@@ -326,7 +402,7 @@ without one. To use a hosted LLM, copy `.streamlit/secrets.toml.example` to
 ```
 claimpilot/
 ├── streamlit_app.py        # entry point (required at root by Streamlit Cloud)
-├── pages/                  # multipage UI (Phase 2+)
+├── pages/                  # multipage UI (7 pages)
 ├── claimpilot/             # core package
 │   ├── config.py           # loads config/assumptions.yaml
 │   ├── ingest.py           # clean the source CSV -> Parquet
@@ -344,19 +420,120 @@ claimpilot/
 │   ├── fairness.py         # disparate impact across protected groups
 │   ├── model_cards.py      # model inventory loader
 │   ├── monitoring.py       # override rate, score trends, PSI drift
+│   ├── backtest.py         # paired ClaimPilot vs. all-manual arms
+│   ├── story.py            # the three demo claims, picked by rule
 │   ├── kpis.py             # every published metric
 │   ├── ui.py               # shared page chrome and disclaimers
 │   └── llm/                # provider interface, mock fallback, PII masking
 ├── config/assumptions.yaml # EVERY simulated constant, in one auditable file
 ├── config/routing_rules.yaml # routing rules + the forbidden-destination list
 ├── config/model_cards.yaml   # the AI model inventory
+├── docs/PRD.md               # problem, users, goals, scope, KPIs, risks, roadmap
 ├── docs/AI_GOVERNANCE.md     # programme summary, risk tiers, fairness, audit
 ├── models/                 # trained model artifacts (small, committed)
 ├── data/sample/            # committed processed Parquet (118 KB)
 ├── reports/metrics.json    # all published numbers
-├── scripts/                # ingest.py, simulate.py, metrics.py
+├── scripts/                # ingest, simulate, train_models, score, backtest, metrics
 └── tests/
 ```
+
+### The seven pages
+
+| Page | What it shows |
+|---|---|
+| **Overview** | The two-minute story: three claims, three outcomes, then the governance view |
+| **File a Claim (FNOL)** | Digital intake, and the extractor reading a free-text narrative |
+| **Triage & Routing** | The three scores with reason codes, and the rule that fired |
+| **Adjuster Workbench** | Queue by priority, copilot briefing, decision form with reason codes |
+| **SIU Queue** | Referred claims with their named red flags |
+| **Governance & Audit** | Audit trail, fairness testing, model inventory, monitoring |
+| **Claims Ops Dashboard** | KPI tiles, guardrails, and the paired backtest |
+
+---
+
+## Deploy it yourself
+
+The repo is designed for **Streamlit Community Cloud**: entry point at the root,
+pinned runtime dependencies, Python 3.11, and every model and metric
+precomputed and committed so the app does no training at boot.
+
+### 1. Check before you push
+
+```bash
+make test          # full suite, including AppTest page smoke tests
+make lint          # ruff
+make check-deploy  # fresh venv, requirements.txt only, boot the app headless
+```
+
+`make check-deploy` proves the dependency set resolves and the server starts on
+a clean environment; the AppTest suite proves every page actually renders. They
+test different things — run both.
+
+Confirm nothing sensitive is staged. `.gitignore` already covers `data/raw/`,
+`.env`, `.streamlit/secrets.toml`, `.venv/` and caches:
+
+```bash
+git status --porcelain --ignored | grep -E "raw/|secrets.toml|\.env$"
+```
+
+That should list those paths as **ignored**, never as staged. Then scan the
+tracked tree for anything key-shaped:
+
+```bash
+git grep -nIE "(sk-[A-Za-z0-9]{20,}|api[_-]?key[\"'\s:=]+[A-Za-z0-9_-]{20,}|BEGIN [A-Z ]*PRIVATE KEY)" -- . ':!*.lock'
+```
+
+No output means clean. `.streamlit/secrets.toml.example` is committed on
+purpose — it contains placeholders only.
+
+### 2. Create a public GitHub repo and push
+
+With the [`gh` CLI](https://cli.github.com):
+
+```bash
+gh repo create claimpilot --public --source=. --remote=origin --description "AI claims triage, automation and governance demo for a fictional P&C auto carrier" --push
+```
+
+Or by hand, after creating an empty public repo in the GitHub UI:
+
+```bash
+git remote add origin https://github.com/<your-username>/claimpilot.git
+```
+
+```bash
+git branch -M main && git push -u origin main
+```
+
+### 3. Deploy on Streamlit Community Cloud
+
+1. Go to **[share.streamlit.io](https://share.streamlit.io)** and sign in with GitHub.
+2. Click **Create app**, then **Deploy a public app from GitHub**.
+3. Fill in the form:
+   - **Repository:** `<your-username>/claimpilot`
+   - **Branch:** `main`
+   - **Main file path:** `streamlit_app.py`
+4. Open **Advanced settings**:
+   - **Python version:** `3.11`
+   - **Secrets:** leave empty to run in demo mode. To use a hosted LLM, paste
+     the contents of `.streamlit/secrets.toml.example` and fill in your key.
+5. Set the **custom subdomain** — something like `claimpilot-<your-name>` gives
+   you `https://claimpilot-<your-name>.streamlit.app`.
+6. Click **Deploy**. First boot takes a couple of minutes while dependencies install.
+7. Paste the URL into the **Live demo** line at the top of this README.
+
+### If the deploy fails
+
+The usual causes, in order of likelihood:
+
+| Symptom in the Streamlit log | Cause | Fix |
+|---|---|---|
+| `ModuleNotFoundError` | A package used at runtime is only in `requirements-dev.txt` | Move it to `requirements.txt` and pin it |
+| `FileNotFoundError: .../claims.parquet` | A data artifact was gitignored instead of committed | `git add -f data/sample/*.parquet models/*.joblib reports/metrics.json` |
+| Build killed / out of memory | A heavy package crept in | Keep `requirements.txt` to the pinned ten; no LightGBM, no torch |
+| App boots then errors on a page | A page imports something the runtime set lacks | Reproduce with `make check-deploy`, which uses runtime deps only |
+| `Error installing requirements` | Python version mismatch | Set Python 3.11 in Advanced settings |
+
+---
 
 ### A note on storage
 

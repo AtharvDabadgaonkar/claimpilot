@@ -31,3 +31,8 @@ if __name__ == "__main__":
     print(f"  fairness flagged:  {g['fairness']['tests_flagged']}/{g['fairness']['tests_assessable']} (worst {g['fairness']['worst_ratio']})")
     print(f"  model cards:       {g['model_inventory']['components']}")
     print(f"  monitoring alerts: {g['monitoring']['alerts']} / warnings {g['monitoring']['warnings']}")
+    b = m['backtest']
+    print(f"  backtest arms:     manual vs claimpilot ({b['claims']} claims, paired)")
+    print(f"  LAE+leakage delta: {b['deltas']['total_cost_pct']:+.1%}")
+    print(f"  SIU hit rate:      {b['siu']['hit_rate_precision']:.1%} (base {b['siu']['portfolio_flag_rate']:.1%})")
+    print(f"  LAE breakeven:     {b['lae_breakeven']['breakeven_referral_rate']:.1%} referral rate vs actual {b['lae_breakeven']['actual_referral_rate']:.1%}")

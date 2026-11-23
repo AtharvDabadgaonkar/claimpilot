@@ -136,6 +136,19 @@ leakage:
   stp_overpayment_rate: 0.02            # cost of fast-tracking without review
   reopen_rate_manual: 0.085
   reopen_rate_claimpilot: 0.065
+  siu_detection_rate: 0.60              # a referral is not a finding: even when
+                                        # a suspicious claim reaches SIU, assume
+                                        # only 60% of the leakage is caught
+  recoverable_share_of_claim: 0.35      # a missed suspicious claim does not leak
+                                        # its whole value; assume this share of
+                                        # the paid amount was avoidable
+  claimpilot_rate_source: >
+    The manual arm's missed-fraud rate (0.55) is a pure assumption: with no
+    triage there is nothing to measure. The ClaimPilot arm's rate is instead
+    DERIVED from the actual routing decisions — a flagged claim that was not
+    referred to SIU is missed outright, and a referred one is missed whenever
+    the assumed detection rate fails. The two arms' rates therefore come from
+    different kinds of source, which is the weakest joint in this comparison.
   note: >
     Leakage here is modeled, not observed. A real carrier measures it with
     file reviews and round-table audits. Treat the direction as illustrative
@@ -428,3 +441,31 @@ monitoring:
     distribution. With ~1,000 claims over two months there is not enough data
     for a meaningful drift signal; the mechanism is demonstrated, not relied on.
 
+
+# -----------------------------------------------------------------------------
+# Backtest — the ClaimPilot arm vs. the "everything manual" arm.
+#
+# IMPORTANT: this is a *paired* comparison. The ClaimPilot arm is derived from
+# each claim's own baseline draw by applying the multipliers in
+# handling_time_hours / cycle_time_days above, so there is no second random
+# draw and no sampling noise between the arms. Every delta the dashboard shows
+# is therefore an arithmetic consequence of these assumptions, NOT evidence.
+# The backtest exists to make the assumptions explicit and traceable, not to
+# validate a saving.
+# -----------------------------------------------------------------------------
+backtest:
+  label: "SIMULATED — assumption-driven, not a measured result"
+  adjuster_hours_per_month: 140      # one adjuster FTE of touch time per month
+  stp_replaces_fixed_cost: true      # a fast-tracked claim pays the automated
+                                     # system cost instead of the manual
+                                     # intake/correspondence fixed cost
+  manual_investigates_nothing: true  # the manual arm has no triage, so it runs
+                                     # no systematic SIU referral and pays no
+                                     # investigation cost. That makes it look
+                                     # cheaper on LAE than it should; the
+                                     # leakage column is where it pays for it.
+  interpretation_note: >
+    Read LAE and leakage together, never apart. The manual arm buys low expense
+    by never investigating; ClaimPilot spends on investigation and recovers
+    more. Comparing only the expense line would flatter the manual arm, and
+    comparing only leakage would flatter ClaimPilot.

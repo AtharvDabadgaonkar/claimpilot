@@ -1,4 +1,8 @@
-"""ClaimPilot — entry point for Streamlit Community Cloud.
+"""ClaimPilot — Overview. Entry point for Streamlit Community Cloud.
+
+This page is the two-minute version of the whole project. Everything below is
+read from the committed artifacts and reports/metrics.json; no figure on this
+page is typed by hand.
 
 Run locally with:  streamlit run streamlit_app.py
 """
@@ -8,7 +12,15 @@ from __future__ import annotations
 import streamlit as st
 
 from claimpilot import config
-from claimpilot.ui import footer, how_calculated, load_tables, page_setup
+from claimpilot.kpis import load_metrics
+from claimpilot.story import pick_story_claims, story_frame
+from claimpilot.ui import (
+    footer,
+    friendly_error,
+    how_calculated,
+    load_tables,
+    page_setup,
+)
 
 page_setup(
     "ClaimPilot",
@@ -18,9 +30,13 @@ page_setup(
 
 st.markdown(
     """
-**ClaimPilot** takes auto claims in digitally, triages them by severity,
-complexity and fraud signal, fast-tracks the simple ones, assists adjusters
-with the rest, and keeps every AI decision explainable and auditable.
+A claims operation is pulled three ways at once: **settle faster**, **stop
+paying what it shouldn't**, and **treat every claimant consistently**. Push on
+any one and the other two give. ClaimPilot is a working model of that
+trade-off — it triages every auto claim on severity, complexity and fraud
+signal, fast-tracks the simple ones, puts a copilot beside the adjuster for the
+rest, and keeps a governed record of what the AI recommended and what a human
+actually decided.
 
 `Intake → Triage → Route → Assist → Govern → Measure`
 """
@@ -28,45 +44,155 @@ with the rest, and keeps every AI decision explainable and auditable.
 
 try:
     tables = load_tables()
-except Exception as exc:  # pragma: no cover - UI guard
-    from claimpilot.ui import friendly_error
+    metrics = load_metrics()
+    from claimpilot.pipeline import load_scored
 
-    friendly_error(exc, "load the claims data")
+    scored = load_scored()
+except Exception as exc:  # pragma: no cover - UI guard
+    friendly_error(exc, "load the claims data and metrics")
     st.stop()
 
 claims = tables["claims"]
+ops = metrics["ops_dashboard"]
+kpi, guard = ops["kpis"], ops["guardrails"]
+bt = metrics["backtest"]
 
-st.subheader("Data foundation")
-c1, c2, c3, c4 = st.columns(4)
-c1.metric("Claims in sample", f"{len(claims):,}")
-c2.metric("Reported-fraud rate", f"{claims['fraud_reported'].mean():.1%}")
-c3.metric("Median claim", f"${claims['total_claim_amount'].median():,.0f}")
-c4.metric("Fields excluded from models", len(config.excluded_model_fields()))
+# ---------------------------------------------------------------------------
+# 1. The headline, both halves of it
+# ---------------------------------------------------------------------------
+st.subheader("What it does to the numbers")
+h = st.columns(4)
+h[0].metric("Straight-through processing", f"{kpi['stp_rate']:.1%}")
+h[1].metric(
+    "Time to first contact",
+    f"{kpi['time_to_first_contact_hours']:.0f} h",
+    delta=f"from {kpi['time_to_first_contact_hours_manual']:.0f} h",
+    delta_color="inverse",
+)
+h[2].metric(
+    "LAE + estimated leakage",
+    f"{bt['deltas']['total_cost_pct']:+.1%}",
+    delta="vs. all-manual",
+    delta_color="off",
+)
+h[3].metric("Claims auto-denied", guard["auto_denied_count"])
 how_calculated(
-    "counts and rates computed directly from data/sample/claims.parquet; "
-    "excluded fields listed in config/assumptions.yaml."
+    "All four are read from reports/metrics.json, which `make metrics` "
+    "regenerates. STP rate and the auto-deny count are measured from routing "
+    "decisions; cost and contact time come from the paired backtest and rest "
+    "on simulated assumptions."
+)
+
+st.error(
+    f"**And the part a demo usually hides.** Expense per claim went **up** "
+    f"{bt['deltas']['lae_per_claim_pct']:+.1%}, not down, because "
+    f"{bt['siu']['referral_rate']:.0%} of this book gets referred to "
+    f"investigation and each referral costs money the all-manual arm never "
+    f"spends. The fairness check flags **{guard['fairness_tests_flagged']} of "
+    f"{guard['fairness_tests_assessable']}** tests, worst ratio "
+    f"**{guard['worst_fairness_ratio']:.3f}** against a 0.80 threshold — even "
+    "though no protected attribute is a model input. Both are on the dashboard "
+    "and in the README, with the reasons.",
+    icon="⚠️",
+)
+
+# ---------------------------------------------------------------------------
+# 2. The story: three claims, three outcomes
+# ---------------------------------------------------------------------------
+st.subheader("Three claims, three outcomes")
+st.caption(
+    "Picked by rule from the scored portfolio, not hard-coded — lowest fraud "
+    "signal among fast-tracked claims, highest among SIU referrals, largest "
+    "exposure among the claims a person decides."
+)
+
+beats = pick_story_claims(scored, claims)
+st.dataframe(
+    story_frame(beats),
+    hide_index=True,
+    use_container_width=True,
+    column_config={"Amount": st.column_config.NumberColumn(format="$%.0f")},
+)
+
+for beat in beats:
+    with st.container(border=True):
+        st.markdown(f"**{beat.beat}** · `{beat.claim_id}` · ${beat.total_claim_amount:,.0f}")
+        st.caption(beat.headline)
+        st.markdown(f"→ **{beat.destination_label}** — {beat.routing_reason}")
+how_calculated(
+    "Each claim's bands and destination come from data/sample/scored.parquet, "
+    "written by `make score`. The reason text is generated by the routing "
+    "rule that fired, defined in config/routing_rules.yaml."
+)
+
+st.info(
+    "**The hard rule.** Routing has four destinations and none of them is a "
+    "denial — the enum has no member to reach. A suspicious claim is *referred*, "
+    f"never refused. Across all {bt['claims']:,} claims, "
+    f"{guard['auto_denied_count']} were auto-denied.",
+    icon="🛡️",
+)
+
+# ---------------------------------------------------------------------------
+# 3. Governance, in one line each
+# ---------------------------------------------------------------------------
+st.subheader("Then the governance view")
+g = st.columns(4)
+g[0].metric(
+    "Fairness tests flagged",
+    f"{guard['fairness_tests_flagged']}/{guard['fairness_tests_assessable']}",
+    delta=f"worst {guard['worst_fairness_ratio']:.3f}",
+    delta_color="inverse",
+)
+g[1].metric("Override rate", f"{guard['override_rate']:.1%}")
+g[2].metric("Fields excluded from models", len(config.excluded_model_fields()))
+g[3].metric("AI components inventoried", metrics["governance_programme"]["model_inventory"]["components"])
+how_calculated(
+    "Fairness is a disparate-impact ratio per group against a 0.80 threshold; "
+    "override rate counts only decisions where the AI made a substantive "
+    "recommendation; the inventory is config/model_cards.yaml, whose "
+    "performance figures are read live from metrics.json so a card cannot "
+    "drift from its model."
+)
+
+st.markdown(
+    """
+**The uncomfortable finding is the point.** Age is not a model input, and the
+STP fast-track rate still differs by age band at a ratio of
+"""
+    f"**{guard['worst_fairness_ratio']:.3f}**. "
+    """The disparity arrives by correlation — the oldest band has the fewest
+low-severity claims and the highest reported-fraud rate in this data, so it
+fails the fast-track gates more often. Excluding a protected attribute did not
+prevent a disparate outcome. That is the whole argument for outcome testing,
+and it is why the threshold was left where it is instead of being moved.
+"""
+)
+
+# ---------------------------------------------------------------------------
+# 4. Reading the numbers honestly
+# ---------------------------------------------------------------------------
+st.subheader("Data foundation")
+c = st.columns(4)
+c[0].metric("Claims in sample", f"{len(claims):,}")
+c[1].metric("Reported-fraud rate", f"{claims['fraud_reported'].mean():.1%}")
+c[2].metric("Median claim", f"${claims['total_claim_amount'].median():,.0f}")
+c[3].metric("PII detection on masking test", f"{metrics['pii_masking']['detection_rate']:.0%}")
+how_calculated(
+    "Counts and rates computed directly from data/sample/claims.parquet. PII "
+    "detection is measured against the narratives known to carry simulated "
+    "contact details, with false positives counted on the clean ones."
 )
 
 st.warning(
-    "**Read the numbers with care.** The sample is ~1,000 claims and its "
-    f"reported-fraud rate is {claims['fraud_reported'].mean():.0%} — far above a real "
-    "auto portfolio. Thresholds here would need full recalibration for a real "
-    "carrier. Narratives, policies, contact details, handling times, costs and "
-    "deadlines are **simulated**.",
+    "**Read every number with care.** The sample is ~1,000 real US auto claims "
+    f"and its reported-fraud rate is {claims['fraud_reported'].mean():.0%} — far "
+    "above a real auto portfolio, which is why the referral volume and every "
+    "threshold here would need full recalibration for a real carrier. "
+    "Narratives, policy terms, contact details, handling times, costs, leakage "
+    "and deadlines are **simulated**, and every constant behind them is in "
+    "`config/assumptions.yaml`.",
     icon="🧪",
-)
-
-st.subheader("Build status")
-st.markdown(
-    """
-| Phase | Scope | Status |
-|---|---|---|
-| 1 | Setup, ingestion, simulation, LLM interface with PII masking | ✅ Complete |
-| 2 | FNOL intake, extraction, coverage check, triage and routing | ⬜ Not started |
-| 3 | Adjuster workbench, reserve model, decisions, audit log | ⬜ Not started |
-| 4 | Governance: audit trail, fairness, model cards, deadlines | ⬜ Not started |
-| 5 | Backtest, KPI dashboard, docs, deploy | ⬜ Not started |
-"""
 )
 
 with st.expander("Simulated vs. real — what is what"):
@@ -77,11 +203,48 @@ deductible, annual premium, incident type / severity / date / location,
 bodily injuries, witnesses, police-report availability, vehicle make / model /
 year, injury / property / vehicle claim amounts, and the `fraud_reported` flag.
 
-**Simulated (generated by `scripts/simulate.py`):** FNOL free-text narratives,
-mock policy terms, fictional policyholder contact details (used only to
-demonstrate PII masking), adjuster handling times, cycle times, costs, and
-claim deadlines. Every assumption is in `config/assumptions.yaml`.
+**Simulated (generated by `scripts/simulate.py` and `scripts/backtest.py`):**
+FNOL free-text narratives, mock policy terms, fictional policyholder contact
+details (used only to demonstrate PII masking), adjuster handling times, cycle
+times, costs, estimated leakage, and claim deadlines. Every assumption is in
+`config/assumptions.yaml`.
+
+**Measured, not assumed:** extraction accuracy against stated ground truth,
+PII masking detection and false positives, fraud model cross-validated AUC,
+reserve error and interval coverage, the routing mix, the SIU hit rate, the
+fairness ratios, and the override rate.
 """
     )
+
+with st.expander("Where to look next"):
+    st.markdown(
+        """
+| Page | What it shows |
+|---|---|
+| **File a Claim (FNOL)** | Digital intake, and the extractor reading a free-text narrative |
+| **Triage & Routing** | The three scores with reason codes, and the rule that fired |
+| **Adjuster Workbench** | Queue by priority, copilot briefing, and the decision form |
+| **SIU Queue** | Referred claims with their red flags |
+| **Governance & Audit** | Audit trail, fairness testing, model inventory, monitoring |
+| **Claims Ops Dashboard** | KPIs, guardrails and the paired backtest |
+"""
+    )
+
+st.subheader("Build status")
+st.markdown(
+    """
+| Phase | Scope | Status |
+|---|---|---|
+| 1 | Setup, ingestion, simulation, LLM interface with PII masking | ✅ Complete |
+| 2 | FNOL intake, extraction, coverage check, triage and routing | ✅ Complete |
+| 3 | Adjuster workbench, reserve model, decisions, audit log | ✅ Complete |
+| 4 | Governance: audit trail, fairness, model cards, monitoring | ✅ Complete |
+| 5 | Backtest, KPI dashboard, docs, deploy | ✅ Complete |
+"""
+)
+st.caption(
+    f"Metrics generated {metrics['generated_at_utc']} · assumptions "
+    f"v{metrics['assumptions_version']} · seed {metrics['random_seed']}"
+)
 
 footer()

@@ -42,3 +42,10 @@ def scored_portfolio() -> pd.DataFrame:
     from claimpilot.pipeline import load_scored
 
     return load_scored()
+
+
+@pytest.fixture(scope="session")
+def backtest_arms() -> pd.DataFrame:
+    from claimpilot.backtest import load_backtest
+
+    return load_backtest()

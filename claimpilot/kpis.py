@@ -302,6 +302,79 @@ def governance_metrics() -> dict[str, Any]:
     }
 
 
+def backtest_metrics() -> dict[str, Any]:
+    """Phase 5: the ClaimPilot arm against the all-manual arm.
+
+    See claimpilot/backtest.py for why these deltas are not evidence.
+    """
+    from claimpilot.backtest import lae_breakeven, load_backtest, summary
+
+    df = load_backtest()
+    out = summary(df)
+    out["lae_breakeven"] = lae_breakeven(df)
+    return out
+
+
+def ops_dashboard_metrics() -> dict[str, Any]:
+    """The KPI tiles and guardrails, assembled from the parts above.
+
+    Deliberately a *view*: every figure here is already published elsewhere in
+    metrics.json. Nothing is recomputed, so a tile cannot disagree with the
+    section it came from.
+    """
+    bt = backtest_metrics()
+    tri = triage_routing_metrics()
+    res = reserve_model_metrics()
+    wb = workbench_metrics()
+    gov = governance_metrics()
+
+    manual = bt["arms"]["manual"]
+    cp = bt["arms"]["claimpilot"]
+
+    return {
+        "kpis": {
+            "stp_rate": tri["stp_rate"],
+            "mean_cycle_days": cp["mean_cycle_days"],
+            "mean_cycle_days_manual": manual["mean_cycle_days"],
+            "time_to_first_contact_hours": cp["time_to_first_contact_hours"],
+            "time_to_first_contact_hours_manual": manual[
+                "time_to_first_contact_hours"
+            ],
+            "lae_per_claim_usd": cp["mean_lae_usd"],
+            "lae_per_claim_usd_manual": manual["mean_lae_usd"],
+            "reserve_mae_usd": res["mae_usd"],
+            "reserve_interval_coverage": res["interval_coverage"],
+            "siu_hit_rate": bt["siu"]["hit_rate_precision"],
+            "siu_base_rate": bt["siu"]["portfolio_flag_rate"],
+            "adjuster_fte_months": cp["adjuster_fte_months"],
+            "adjuster_fte_months_manual": manual["adjuster_fte_months"],
+            "claims_per_fte_month": cp["claims_per_fte_month"],
+        },
+        "guardrails": {
+            "estimated_leakage_total_usd": cp["total_leakage_usd"],
+            "estimated_leakage_total_usd_manual": manual["total_leakage_usd"],
+            "reopen_rate": cp["reopen_rate"],
+            "reopen_rate_manual": manual["reopen_rate"],
+            "worst_fairness_ratio": gov["fairness"]["worst_ratio"],
+            "fairness_tests_flagged": gov["fairness"]["tests_flagged"],
+            "fairness_tests_assessable": gov["fairness"]["tests_assessable"],
+            "override_rate": wb["override_rate"],
+            "deadline_breached_rate": wb["deadline_breached_rate"],
+            "auto_denied_count": 0,
+            "monitoring_alerts": gov["monitoring"]["alerts"],
+            "monitoring_warnings": gov["monitoring"]["warnings"],
+        },
+        "guardrail_note": (
+            "Guardrails sit beside the efficiency tiles on purpose. Two of "
+            "them are currently failing their own thresholds — the fairness "
+            "check and the deadline breach rate — and the dashboard shows "
+            "that rather than hiding it. A speed number with no guardrail "
+            "next to it is the thing this project is arguing against."
+        ),
+        "is_real": False,
+    }
+
+
 def build_metrics() -> dict[str, Any]:
     """Assemble every metric available at the current build phase."""
     metrics: dict[str, Any] = {
@@ -313,6 +386,7 @@ def build_metrics() -> dict[str, Any]:
             "2-intake-and-triage",
             "3-workbench-and-siu",
             "4-governance",
+            "5-dashboard-and-ship",
         ],
         "disclaimer": config.DISCLAIMER,
         "reading_note": (
@@ -329,6 +403,8 @@ def build_metrics() -> dict[str, Any]:
     metrics["reserve_model"] = reserve_model_metrics()
     metrics["workbench"] = workbench_metrics()
     metrics["governance_programme"] = governance_metrics()
+    metrics["backtest"] = backtest_metrics()
+    metrics["ops_dashboard"] = ops_dashboard_metrics()
     return metrics
 
 

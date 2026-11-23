@@ -113,3 +113,78 @@ def test_readme_warns_session_storage_is_not_permanent():
 def test_readme_documents_the_no_auto_deny_rule():
     low = _text().lower()
     assert "never auto-deny" in low or "can never auto-deny" in low
+
+
+def test_backtest_numbers_match_metrics():
+    """Phase 5: the backtest table in the README is read from metrics.json."""
+    bt = load_metrics()["backtest"]
+    man, cp = bt["arms"]["manual"], bt["arms"]["claimpilot"]
+    text = _text()
+    assert f"{man['mean_handling_hours']} h" in text
+    assert f"{cp['mean_handling_hours']} h" in text
+    assert f"{man['mean_cycle_days']} d" in text
+    assert f"{cp['mean_cycle_days']} d" in text
+    assert f"${cp['mean_lae_usd']:,.0f}" in text
+    assert f"${man['total_cost_usd']:,.0f}" in text
+    assert f"${cp['total_cost_usd']:,.0f}" in text
+    assert f"{bt['deltas']['total_cost_pct']:+.1%}" in text
+
+
+def test_breakeven_numbers_match_metrics():
+    be = load_metrics()["backtest"]["lae_breakeven"]
+    text = _text()
+    assert f"${be['automation_headroom_usd']:,.0f}" in text
+    assert f"{be['breakeven_referral_rate']:.1%}" in text
+    assert f"{be['actual_referral_rate']:.1%}" in text
+    assert be["verdict"] in text
+
+
+def test_kpi_tiles_in_readme_match_metrics():
+    ops = load_metrics()["ops_dashboard"]
+    text = _text()
+    assert f"{ops['kpis']['stp_rate']:.1%}" in text
+    assert f"{ops['kpis']['siu_hit_rate']:.1%}" in text
+    assert f"{ops['guardrails']['worst_fairness_ratio']:.3f}" in text
+
+
+def test_readme_says_the_backtest_is_not_evidence():
+    """The headline savings must never be presented as a measured result."""
+    low = _text().lower()
+    assert "not evidence" in low
+    assert "arithmetic consequence" in low
+    assert "paired" in low
+
+
+def test_readme_reports_the_expense_increase_not_just_the_saving():
+    """The uncomfortable half of the backtest must survive an edit."""
+    low = _text().lower()
+    assert "more expensive" in low or "expense per claim went **up**" in low
+    assert "break-even" in low
+
+
+def test_readme_gives_the_github_and_streamlit_deploy_steps():
+    text = _text()
+    assert "git push -u origin main" in text
+    assert "git remote add origin" in text
+    assert "gh repo create" in text
+    assert "share.streamlit.io" in text
+    assert "streamlit_app.py" in text
+    assert "3.11" in text
+
+
+def test_readme_tells_the_reader_to_scan_for_secrets_before_pushing():
+    low = _text().lower()
+    assert "secrets.toml" in low
+    assert ".gitignore" in low
+
+
+def test_readme_links_the_prd():
+    assert "docs/PRD.md" in _text()
+
+
+def test_readme_has_a_place_for_the_live_link():
+    """The brief requires the live Streamlit link at the top of the README."""
+    text = _text()
+    head = text[: text.find("## The four numbers")]
+    assert "Live demo" in head
+    assert "streamlit" in head.lower()

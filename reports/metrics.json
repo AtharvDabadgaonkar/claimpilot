@@ -1,12 +1,13 @@
 {
-  "generated_at_utc": "2026-11-23T14:19:44+00:00",
+  "generated_at_utc": "2026-11-23T18:34:11+00:00",
   "assumptions_version": "0.1.0",
   "random_seed": 20250117,
   "phases_complete": [
     "1-setup-and-data",
     "2-intake-and-triage",
     "3-workbench-and-siu",
-    "4-governance"
+    "4-governance",
+    "5-dashboard-and-ship"
   ],
   "disclaimer": "Demo project using public and simulated data. Not a licensed insurance product, not legal or compliance advice.",
   "reading_note": "Numbers under 'dataset' and 'pii_masking' are measured. Numbers under 'simulated_layers' derive from assumptions in config/assumptions.yaml and are not observations of a real insurer's operations.",
@@ -579,5 +580,115 @@
       "drift_note": "Drift here compares the second half of the claim period against the first, which is a stand-in for comparing live scores against the training distribution. With ~1,000 claims over two months there is not enough data for a meaningful drift signal; the mechanism is demonstrated, not relied on."
     },
     "is_real": true
+  },
+  "backtest": {
+    "version": "backtest-paired-v0.1",
+    "design": "paired: the ClaimPilot arm is derived from each claim's own baseline draw",
+    "claims": 1000,
+    "arms": {
+      "manual": {
+        "arm": "manual",
+        "claims": 1000,
+        "mean_handling_hours": 8.97,
+        "mean_cycle_days": 26.2,
+        "mean_lae_usd": 802.63,
+        "total_lae_usd": 802629.85,
+        "time_to_first_contact_hours": 26.0,
+        "total_leakage_usd": 2867214.39,
+        "mean_leakage_usd": 2867.21,
+        "total_cost_usd": 3669844.24,
+        "reopen_rate": 0.085,
+        "adjuster_fte_months": 64.1,
+        "claims_per_fte_month": 15.6
+      },
+      "claimpilot": {
+        "arm": "claimpilot",
+        "claims": 1000,
+        "mean_handling_hours": 9.55,
+        "mean_cycle_days": 26.8,
+        "mean_lae_usd": 916.36,
+        "total_lae_usd": 916360.46,
+        "time_to_first_contact_hours": 2.0,
+        "total_leakage_usd": 2577858.8,
+        "mean_leakage_usd": 2577.86,
+        "total_cost_usd": 3494219.26,
+        "reopen_rate": 0.065,
+        "adjuster_fte_months": 68.2,
+        "claims_per_fte_month": 14.7
+      }
+    },
+    "deltas": {
+      "handling_hours_pct": 0.0647,
+      "cycle_days_pct": 0.0229,
+      "first_contact_pct": -0.9231,
+      "lae_per_claim_pct": 0.1417,
+      "lae_total_usd": 113730.61,
+      "leakage_total_usd": -289355.59,
+      "total_cost_usd": -175624.98,
+      "total_cost_pct": -0.0479,
+      "adjuster_fte_months": 4.1
+    },
+    "siu": {
+      "referred": 271,
+      "referral_rate": 0.271,
+      "flagged_in_portfolio": 247,
+      "hits": 200,
+      "hit_rate_precision": 0.738,
+      "flagged_caught_recall": 0.8097,
+      "portfolio_flag_rate": 0.247,
+      "flagged_not_referred": 47,
+      "label_caveat": "fraud_reported is a reported flag, not an adjudicated finding. Precision above the portfolio flag rate means referrals are better than random; it does not mean the referrals were right."
+    },
+    "fast_tracked": 81,
+    "referred_to_siu": 271,
+    "is_real": false,
+    "evidence_caveat": "Not evidence. The arms are paired on the same random draw, so every delta here is an arithmetic consequence of the multipliers in config/assumptions.yaml rather than a measured outcome. The only measured figures in this backtest are the routing mix and the SIU hit rate.",
+    "interpretation_note": "Read LAE and leakage together, never apart. The manual arm buys low expense by never investigating; ClaimPilot spends on investigation and recovers more. Comparing only the expense line would flatter the manual arm, and comparing only leakage would flatter ClaimPilot.",
+    "lae_breakeven": {
+      "cost_per_referral_usd": 1100.0,
+      "claimpilot_lae_excluding_siu_usd": 618260.46,
+      "manual_lae_usd": 802629.85,
+      "automation_headroom_usd": 184369.39,
+      "breakeven_referrals": 167,
+      "breakeven_referral_rate": 0.1676,
+      "actual_referrals": 271,
+      "actual_referral_rate": 0.271,
+      "verdict": "the investigation programme costs more than the automation saves",
+      "note": "Exact arithmetic on the assumed rates, not a simulation. The break-even rate is what a realistic auto book would sit under: this dataset's 24.7% reported-fraud rate forces a referral rate an order of magnitude above a real portfolio's."
+    }
+  },
+  "ops_dashboard": {
+    "kpis": {
+      "stp_rate": 0.081,
+      "mean_cycle_days": 26.8,
+      "mean_cycle_days_manual": 26.2,
+      "time_to_first_contact_hours": 2.0,
+      "time_to_first_contact_hours_manual": 26.0,
+      "lae_per_claim_usd": 916.36,
+      "lae_per_claim_usd_manual": 802.63,
+      "reserve_mae_usd": 10653.38,
+      "reserve_interval_coverage": 0.78,
+      "siu_hit_rate": 0.738,
+      "siu_base_rate": 0.247,
+      "adjuster_fte_months": 68.2,
+      "adjuster_fte_months_manual": 64.1,
+      "claims_per_fte_month": 14.7
+    },
+    "guardrails": {
+      "estimated_leakage_total_usd": 2577858.8,
+      "estimated_leakage_total_usd_manual": 2867214.39,
+      "reopen_rate": 0.065,
+      "reopen_rate_manual": 0.085,
+      "worst_fairness_ratio": 0.3549,
+      "fairness_tests_flagged": 5,
+      "fairness_tests_assessable": 8,
+      "override_rate": 0.1111,
+      "deadline_breached_rate": 0.715,
+      "auto_denied_count": 0,
+      "monitoring_alerts": 0,
+      "monitoring_warnings": 0
+    },
+    "guardrail_note": "Guardrails sit beside the efficiency tiles on purpose. Two of them are currently failing their own thresholds \u2014 the fairness check and the deadline breach rate \u2014 and the dashboard shows that rather than hiding it. A speed number with no guardrail next to it is the thing this project is arguing against.",
+    "is_real": false
   }
 }
