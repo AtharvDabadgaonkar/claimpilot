@@ -382,3 +382,49 @@ workbench:
   # A denial note must be substantive, not a single character.
   min_denial_note_chars: 20
 
+# -----------------------------------------------------------------------------
+# Fairness testing.
+# Protected attributes are never model inputs, but outcomes are still measured
+# across them: excluding a field does not prevent a disparate outcome, because
+# other features can correlate with it.
+# -----------------------------------------------------------------------------
+fairness:
+  # Four-fifths rule: the EEOC's long-standing rule of thumb that a selection
+  # rate below 80% of the highest group's rate warrants investigation. It is a
+  # screening heuristic borrowed from US employment law, NOT an insurance
+  # standard and NOT a legal test for insurance pricing or claims handling.
+  disparate_impact_threshold: 0.80
+  threshold_note: >
+    The 0.8 threshold comes from the EEOC four-fifths rule in employment law.
+    It is used here as a widely understood screening signal. Insurance
+    discrimination is governed by state unfair trade practice and unfair
+    claims settlement acts, which do not define a single numeric test. A real
+    carrier would agree its metrics with counsel and its regulators.
+  # Groups too small to say anything about are reported but not flagged.
+  min_group_size: 30
+  # Outcomes tested across each group.
+  tested_outcomes:
+    - stp_rate
+    - siu_referral_rate
+  test_groups:
+    region: "Loss region, derived from incident state"
+    age_band: "Policyholder age band"
+    vehicle_category: "Market segment of the insured vehicle"
+    insured_sex: "Policyholder sex as recorded in the source data"
+
+# -----------------------------------------------------------------------------
+# Monitoring thresholds. All SIMULATED operating choices for the demo.
+# -----------------------------------------------------------------------------
+monitoring:
+  label: "SIMULATED thresholds"
+  override_rate_warn: 0.25        # humans disagreeing this often questions the model
+  override_rate_floor: 0.02       # near-zero may mean rubber-stamping, not agreement
+  drift_psi_warn: 0.10            # population stability index: moderate shift
+  drift_psi_alert: 0.25           # significant shift
+  psi_bins: 10
+  drift_note: >
+    Drift here compares the second half of the claim period against the first,
+    which is a stand-in for comparing live scores against the training
+    distribution. With ~1,000 claims over two months there is not enough data
+    for a meaningful drift signal; the mechanism is demonstrated, not relied on.
+
